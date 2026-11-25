@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Test offline exercise catalog
+        run: node --test Preview/tests/exercise-library.test.cjs
       - name: Test notebook and adventure rules
         run: swift test --package-path BodyNoteCore
       - name: Build the iPhone app

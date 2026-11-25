@@ -6,7 +6,10 @@ let package = Package(
     platforms: [.iOS(.v17), .macOS(.v13)],
     products: [.library(name: "BodyNoteCore", targets: ["BodyNoteCore"])],
     targets: [
-        .target(name: "BodyNoteCore"),
+        .target(name: "BodyNoteCore", resources: [
+            .process("Resources/exercise-catalog.json"),
+            .copy("Resources/ExerciseArt")
+        ]),
         .testTarget(name: "BodyNoteCoreTests", dependencies: ["BodyNoteCore"])
     ]
 )

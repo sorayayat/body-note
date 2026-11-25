@@ -5,6 +5,7 @@ const key = "body-note-demo.v1";
 const kinds = { training: "훈련", rehab: "재활", rest: "휴식" };
 const amountLabels = { "회": "횟수 (회)", "초": "시간 (초)", "분": "시간 (분)", "m": "거리 (m)" };
 const sides = ["구분 없음", "왼쪽", "오른쪽", "양쪽"];
+const rowsWithDefaultUnit = new WeakSet();
 const uid = () => crypto.randomUUID();
 const clean = (s) => s.trim().replace(/\s+/g, " ").toLowerCase();
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -19,7 +20,9 @@ function dayLabel(key) {
   return `${year}년 ${month}월 ${day}일`;
 }
 function movement(name = "") {
-  return { name, unit: "회", equipment: "", note: "", sets: [{ amount: 10, kg: "", side: "구분 없음" }] };
+  const exercise = { name, unit: "회", equipment: "", note: "", sets: [{ amount: 10, kg: "", side: "구분 없음" }] };
+  if (!name) rowsWithDefaultUnit.add(exercise);
+  return exercise;
 }
 function newEntry(kind = "training") {
   return { id: uid(), day: dayKey(), time: Date.now(), kind, exercises: [movement()],
@@ -102,7 +105,11 @@ function notify(text) {
 function page() { return pages[pages.length - 1]; }
 function go(view, options = {}) { pages.push({ view, ...options }); render(true); }
 function home(tab) { draft = null; pages = [{ view: tab }]; render(true); }
-function back() { if (pages.length > 1) pages.pop(); draft = null; render(true); }
+function back() {
+  if (page().view === "editor") draft = null;
+  if (pages.length > 1) pages.pop();
+  render(true);
+}
 function latest() { return [...book.entries].reverse().sort((a, b) => b.time - a.time); }
 function title(entry) {
   if (entry.kind === "rest") return "휴식 기록";
@@ -147,7 +154,8 @@ function journalView() {
     content = `<label class="field">날짜<input id="calendar-day" type="date" value="${calendarDate}" max="${dayKey()}"></label>`
       + rows(latest().filter((e) => e.day === calendarDate));
   } else { content = rows(latest()); }
-  return heading("일지") + segments(filters.map((s) => [s,s]), journalFilter, "filter") + content;
+  return heading("일지") + button("동작 도감", "library", "secondary wide")
+    + segments(filters.map((s) => [s,s]), journalFilter, "filter") + content;
 }
 function contributing(goal) {
   const days = new Set();
@@ -256,7 +264,7 @@ function editMovement(ex, index) {
       + (draft.kind === "rehab" || set.side !== "구분 없음"
         ? `<tr><td colspan="4">${choice(row+" 방향", "side", set.side, sides, pos)}</td></tr>` : "");
   }).join("");
-  return `<div class="card">${field("운동 이름", "name", ex.name, ref)}
+  return `<div class="card">${catalogNameField(ex, index)}
     ${pin ? `<p class="pin">고정 메모 · ${esc(pin)}</p>` : ""}
     ${field("도구 · 밴드 색 (선택)", "equipment", ex.equipment, ref)}
     ${choice("단위", "unit", ex.unit, Object.keys(amountLabels), ref)}
@@ -298,7 +306,7 @@ function detailView() {
   return backButton() + heading(title(e)) + (a ? `<div class="record-look">${recordPortrait(a)}<div>
     <strong>${sports[a.sport]} 스킨 · ${animals[a.animal]}</strong>${muted(dayLabel(e.day) + " · " + kinds[e.kind])}</div></div>` :
     muted(dayLabel(e.day) + " · 휴식")) + (oldSport ? muted("이전 기록 종목 · " + oldSport) : "")
-    + e.exercises.map((ex) => `<div class="card"><strong>${esc(ex.name)}</strong>${summaries(ex)}
+    + e.exercises.map((ex) => `<div class="card"><strong>${esc(ex.name)}</strong>${summaries(ex)}${recordedExerciseInfo(ex)}
       ${button("이 운동의 기록 카드", "exercise", "quiet", `data-name="${esc(ex.name)}"`)}</div>`).join("")
     + [["시작 전",e.before],["운동 후",e.after],["체감 난이도",e.effort],["메모",e.note]].filter(([,v]) => v)
       .map(([k,v]) => muted(`${k} · ${v}`)).join("")
@@ -340,11 +348,12 @@ function goalView() {
 function render(navigate = false) {
   const views = { today: trainingHome, profile: profileView, news: newsView,
     "sport-help": () => backButton()+heading("훈련 스킨")+muted("새 일지에 입힐 스킨을 고르세요. 훈련을 확정하면 그날의 선수와 스킨이 일지와 훈련장에 보여요."), journal: journalView, adventure: adventureView, detail: detailView,
-    exercise: exerciseView, editor: editorView, note: noteView, "goal-new": goalView, "goal-detail": goalView,
+    exercise: exerciseView, editor: editorView, library: libraryView, "catalog-info": catalogDetailView,
+    note: noteView, "goal-new": goalView, "goal-detail": goalView,
     growth: () => growthBoardView(true), "skill-new": skillGoalForm, "skill-detail": skillDetail,
     pick: () => backButton() + heading("지난 기록 가져오기") + rows(latest(), "copy") };
   $("#screen").innerHTML = views[page().view]();
-  $("#tabs").hidden = ["editor","pick","note","goal-new","skill-new"].includes(page().view);
+  $("#tabs").hidden = ["editor","library","catalog-info","pick","note","goal-new","skill-new"].includes(page().view);
   document.querySelectorAll("[data-tab]").forEach((el) => {
     if (el.dataset.tab === pages[0].view) el.setAttribute("aria-current","page");
     else el.removeAttribute("aria-current");
@@ -430,11 +439,21 @@ function confirmEntry() {
 }
 
 document.addEventListener("input", ({target: t}) => {
+  if (t.id === "catalog-query") {
+    page().query = t.value;
+    $("#catalog-results").innerHTML = catalogResults();
+    return;
+  }
   if (!draft || !t.dataset.field) return;
   const ex = draft.exercises[t.dataset.ex];
   if (t.dataset.field === "skin") return;
   const obj = t.dataset.set !== undefined ? ex.sets[t.dataset.set] : ex || draft;
   obj[t.dataset.field] = t.value;
+  if (t.dataset.set !== undefined || t.dataset.field === "unit") rowsWithDefaultUnit.delete(ex);
+  if (t.dataset.field === "name") updateNameSuggestions(t);
+});
+document.addEventListener("focusin", ({target: t}) => {
+  if (t.dataset?.field === "name") updateNameSuggestions(t);
 });
 document.addEventListener("change", ({target: t}) => {
   if (t.id === "calendar-day") { calendarDate = t.value || dayKey(); render(); }
@@ -490,6 +509,16 @@ document.addEventListener("click", (event) => {
   case "edit": draft = structuredClone(entry); go("editor", { editing: true }); break;
   case "detail": go("detail", { id }); break;
   case "exercise": go("exercise", { name: el.dataset.name }); break;
+  case "library": go("library", { ex: ex == null ? null : Number(ex), query: "", region: "" }); break;
+  case "catalog-info": go("catalog-info", { id, ex: page().ex }); break;
+  case "catalog-region":
+    page().region = value;
+    document.querySelectorAll('[data-action="catalog-region"]').forEach(chip =>
+      chip.setAttribute("aria-pressed", String(chip.dataset.value === value)));
+    $("#catalog-results").innerHTML = catalogResults();
+    break;
+  case "catalog-reset": page().query = ""; page().region = ""; render(); $("#catalog-query").focus(); break;
+  case "catalog-select": chooseCatalogExercise(id, Number(ex)); break;
   case "filter": journalFilter = value; render(); break;
   case "kind":
     draft.kind = value;
@@ -501,10 +530,13 @@ document.addEventListener("click", (event) => {
     if (!draft.exercises.length) draft.exercises.push(movement());
     render(); break;
   case "set-add": {
+    rowsWithDefaultUnit.delete(draft.exercises[ex]);
     const sets = draft.exercises[ex].sets;
     sets.push(structuredClone(sets[sets.length-1])); render(); break;
   }
-  case "set-drop": draft.exercises[ex].sets.splice(Number(el.dataset.set),1); render(); break;
+  case "set-drop":
+    rowsWithDefaultUnit.delete(draft.exercises[ex]);
+    draft.exercises[ex].sets.splice(Number(el.dataset.set),1); render(); break;
   case "confirm": confirmEntry(); break;
   case "pin": {
     const name = page().name, k = clean(name);

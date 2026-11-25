@@ -136,7 +136,11 @@ private struct ExerciseEditor: View {
     }
 
     var body: some View {
-        TextField("운동 이름", text: $exercise.name)
+        if exercise.drill == nil {
+            CatalogNameField(exercise: $exercise)
+        } else {
+            TextField("운동 이름", text: $exercise.name)
+        }
         if let pin = store.book.pinnedNotes[exercise.key] {
             Label(pin, systemImage: "pin.fill").font(.subheadline).foregroundStyle(Color.accentColor)
         }

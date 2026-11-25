@@ -9,6 +9,9 @@ struct JournalView: View {
 
     var body: some View {
         List {
+            NavigationLink { ExerciseLibraryView() } label: {
+                Label("동작 도감", systemImage: "books.vertical")
+            }
             Picker("일지 보기", selection: $filter) {
                 ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
@@ -93,6 +96,9 @@ struct EntryDetail: View {
                 ForEach(entry.exercises) { exercise in
                     Section {
                         SetSummary(exercise: exercise)
+                        if exercise.drill == nil, let item = ExerciseCatalog.bundled.entry(named: exercise.name) {
+                            NavigationLink("동작 그림과 설명") { CatalogExerciseDetail(item: item, onSelect: nil) }
+                        }
                         NavigationLink("이 운동의 기록 카드") { ExerciseHistory(name: exercise.name) }
                     } header: { Text(exercise.name) }
                 }
