@@ -1,0 +1,268 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+		51217BE75869FB486093C79A = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = AdventureView.swift;
+			sourceTree = "<group>";
+		};
+		191C1BE20A6F7B228D4CCCAB = {
+			isa = PBXBuildFile;
+			fileRef = 51217BE75869FB486093C79A;
+		};
+		545D728C544CBC854955F795 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = BodyNoteApp.swift;
+			sourceTree = "<group>";
+		};
+		6FDFFFC1016CD339BACE5C4C = {
+			isa = PBXBuildFile;
+			fileRef = 545D728C544CBC854955F795;
+		};
+		E1FCF4E41C3297002D6DE44C = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = Components.swift;
+			sourceTree = "<group>";
+		};
+		C5801C22212E4E9749EA401F = {
+			isa = PBXBuildFile;
+			fileRef = E1FCF4E41C3297002D6DE44C;
+		};
+		D026473D94158B7C4F4C5AF6 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = JournalEditor.swift;
+			sourceTree = "<group>";
+		};
+		9D4E4A55E756E29BC5D89749 = {
+			isa = PBXBuildFile;
+			fileRef = D026473D94158B7C4F4C5AF6;
+		};
+		851C6E2F6A504A039192FF52 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = JournalView.swift;
+			sourceTree = "<group>";
+		};
+		BEAB270A512380DE2EE7B2A5 = {
+			isa = PBXBuildFile;
+			fileRef = 851C6E2F6A504A039192FF52;
+		};
+		D5E8447161F1F1341E8CF22A = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = TodayView.swift;
+			sourceTree = "<group>";
+		};
+		AA8C2254191B1C787124587A = {
+			isa = PBXBuildFile;
+			fileRef = D5E8447161F1F1341E8CF22A;
+		};
+		9BA225E25261CDCD8F1C2C00 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = TrainingGround.swift;
+			sourceTree = "<group>";
+		};
+		82FF292CD2035CB58A63E1D4 = {
+			isa = PBXBuildFile;
+			fileRef = 9BA225E25261CDCD8F1C2C00;
+		};
+		D7223FB9A1364F01BA907F21 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = GrowthBoard.swift;
+			sourceTree = "<group>";
+		};
+		D7223FB9A1364F01BA907F22 = {
+			isa = PBXBuildFile;
+			fileRef = D7223FB9A1364F01BA907F21;
+		};
+		795A02A63DC9C1E86758E98F = {
+			isa = PBXFileReference;
+			lastKnownFileType = folder.assetcatalog;
+			path = Assets.xcassets;
+			sourceTree = "<group>";
+		};
+		6FE0BBEC37407380D400F491 = {
+			isa = PBXBuildFile;
+			fileRef = 795A02A63DC9C1E86758E98F;
+		};
+		A172CEDCAE47474B615C54D5 = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			path = BodyNote.app;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		0A3E27B8CA818264D75C8D81 = {
+			isa = PBXGroup;
+			children = (A172CEDCAE47474B615C54D5,);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D3EF7DE562F9A4A34A9A0B05 = {
+			isa = PBXGroup;
+			children = (51217BE75869FB486093C79A,545D728C544CBC854955F795,E1FCF4E41C3297002D6DE44C,D026473D94158B7C4F4C5AF6,851C6E2F6A504A039192FF52,D5E8447161F1F1341E8CF22A,9BA225E25261CDCD8F1C2C00,D7223FB9A1364F01BA907F21,795A02A63DC9C1E86758E98F,);
+			path = BodyNote;
+			sourceTree = "<group>";
+		};
+		4813494D137E1631BBA301D5 = {
+			isa = PBXGroup;
+			children = (D3EF7DE562F9A4A34A9A0B05,0A3E27B8CA818264D75C8D81,);
+			sourceTree = "<group>";
+		};
+		BC4A71180870F7945155FBB0 = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = BodyNoteCore;
+		};
+		0D45F5FD462B8C70BFFB1002 = {
+			isa = XCSwiftPackageProductDependency;
+			package = BC4A71180870F7945155FBB0;
+			productName = BodyNoteCore;
+		};
+		45A6E997A6CB90B45463934E = {
+			isa = PBXBuildFile;
+			productRef = 0D45F5FD462B8C70BFFB1002;
+		};
+		878A52FC5FF6A57D50B7B870 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (191C1BE20A6F7B228D4CCCAB,6FDFFFC1016CD339BACE5C4C,C5801C22212E4E9749EA401F,9D4E4A55E756E29BC5D89749,BEAB270A512380DE2EE7B2A5,AA8C2254191B1C787124587A,82FF292CD2035CB58A63E1D4,D7223FB9A1364F01BA907F22,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		41D311A605520FC7B8B9A980 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (6FE0BBEC37407380D400F491,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E2AA269EB967A8853A258BFA = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (45A6E997A6CB90B45463934E,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		73EBF6644258C120893E685D = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				DEBUG_INFORMATION_FORMAT = dwarf;
+			};
+			name = Debug;
+		};
+		6C7EFF6369083C8E1F2B1994 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Body Note";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.sorayayat.BodyNote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		0B0C687DF8B6B8DC790B519C = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+			};
+			name = Release;
+		};
+		DD75E2CB1C510A828AC72D96 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Body Note";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.sorayayat.BodyNote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D69E6ABAEE8D1F0F03292F91 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (73EBF6644258C120893E685D,0B0C687DF8B6B8DC790B519C,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		28A8BB66987DD87BDA946B2E = {
+			isa = XCConfigurationList;
+			buildConfigurations = (6C7EFF6369083C8E1F2B1994,DD75E2CB1C510A828AC72D96,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		34A04005BCAF206EEC990BD9 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 28A8BB66987DD87BDA946B2E;
+			buildPhases = (878A52FC5FF6A57D50B7B870,E2AA269EB967A8853A258BFA,41D311A605520FC7B8B9A980,);
+			buildRules = ();
+			dependencies = ();
+			name = BodyNote;
+			packageProductDependencies = (0D45F5FD462B8C70BFFB1002,);
+			productName = BodyNote;
+			productReference = A172CEDCAE47474B615C54D5;
+			productType = "com.apple.product-type.application";
+		};
+		244210E48437B6556980A702 = {
+			isa = PBXProject;
+			attributes = {LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600;};
+			buildConfigurationList = D69E6ABAEE8D1F0F03292F91;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = ko;
+			hasScannedForEncodings = 0;
+			knownRegions = (ko, Base,);
+			mainGroup = 4813494D137E1631BBA301D5;
+			packageReferences = (BC4A71180870F7945155FBB0,);
+			productRefGroup = 0A3E27B8CA818264D75C8D81;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (34A04005BCAF206EEC990BD9,);
+		};
+	};
+	rootObject = 244210E48437B6556980A702;
+}
