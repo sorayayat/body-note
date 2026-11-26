@@ -64,7 +64,28 @@ async function connect(address) {
     await until(selector,()=>visible(selector));
     await evaluate("{const el="+find(selector)+";el.value="+JSON.stringify(value)+";for(const type of ['input','change']) el.dispatchEvent(new Event(type,{bubbles:true}));}");
   };
-  return {send,evaluate,click,input, visible, action:name=>click('[data-action="'+name+'"]'),
+  const tab = async id=>{
+    const title={today:"오늘",journal:"일지",coach:"코치"}[id];
+    await click('[data-tab="'+id+'"]');
+    await until("opened "+title,()=>evaluate(
+      find('[data-tab="'+id+'"][aria-current="page"]')+'!==null && document.querySelector("#screen h2")?.textContent.trim()==='+JSON.stringify(title)));
+  };
+  const waitForDocumentChange = async previous=>{
+    await until("new document and restored screen",async()=>{
+      try {
+        return await evaluate("performance.timeOrigin!=="+previous+" && document.readyState==='complete' && !!document.querySelector('#screen h2')");
+      } catch (error) {
+        if (/execution context|context with specified id/i.test(error.message)) return false;
+        throw error;
+      }
+    });
+  };
+  const reload = async ()=>{
+    const previous=await evaluate("performance.timeOrigin");
+    await send("Page.reload");
+    await waitForDocumentChange(previous);
+  };
+  return {send,evaluate,click,input,tab,reload,waitForDocumentChange,visible,action:name=>click('[data-action="'+name+'"]'),
     value:selector=>evaluate(find(selector)+"?.value"),
     stored:()=>evaluate("JSON.parse(localStorage.getItem('body-note-demo.v1'))")};
 }
@@ -76,12 +97,11 @@ try {
   const endpoint="http://127.0.0.1:"+port;
   const pages=await (await fetch(endpoint+"/json/list")).json();
   const app=await connect(pages.find(item=>item.type==="page").webSocketDebuggerUrl);
-  const {send,evaluate,action,input,click,visible,value,stored}=app;
+  const {send,evaluate,action,input,click,visible,value,stored,tab,reload}=app;
   const name='[data-field="name"][data-ex="0"]';
   const amount='[data-field="amount"][data-ex="0"][data-set="0"]';
   const weight='[data-field="kg"][data-ex="0"][data-set="0"]';
   const note='[data-field="note"]:not([data-ex])';
-  const tab=id=>click('[data-tab="'+id+'"]');
   const expectValue=(selector,expected)=>until(
     selector+" shows "+JSON.stringify(expected),async()=>await value(selector)===expected);
   const url=new URL("../Preview/index.html",import.meta.url).href;
@@ -99,7 +119,7 @@ try {
   await until("library on browser back",()=>visible("#catalog-query"));
   await evaluate("history.forward()");
   await until("detail on browser forward",()=>visible('[data-action="catalog-select"]'));
-  await send("Page.reload");
+  await reload();
   await until("catalog detail on reload",()=>visible('[data-action="catalog-select"]'));
   await action("back");
   await until("library after detail",()=>visible("#catalog-query"));
@@ -138,7 +158,7 @@ try {
   await until("edit in place",async()=>(await stored()).entries[0].exercises[0].sets[0].amount===11);
   await click('[data-action="locker-animal"][data-value="dog"]');
   await tab("coach"); await input("#coach-input","경기 전에 긴장돼");
-  await tab("journal"); await tab("coach"); await send("Page.reload");
+  await tab("journal"); await tab("coach"); await reload();
   await until("unsubmitted chat after reload",async()=>await value("#coach-input")==="경기 전에 긴장돼");
   await action("coach-send");
   await until("first coaching reply and cleared composer",async()=>
@@ -165,7 +185,7 @@ try {
   });
   await evaluate("window.restoreTestStorage=Storage.prototype.setItem; Storage.prototype.setItem=function(){throw new DOMException('Test storage full','QuotaExceededError')}");
   await input(note,"저장공간 복구 뒤 보관할 말");
-  await tab("journal");
+  await click('[data-tab="journal"]');
   await until("visible save failure",async()=>/저장/u.test(await evaluate("document.querySelector('#notice').innerText")));
   await expectValue(note,"저장공간 복구 뒤 보관할 말");
   assert.equal((await stored()).drafts.find(d=>d.entry.exercises[0].name==="첫째 창 운동").entry.note,"첫째 창 메모");
@@ -191,7 +211,7 @@ try {
     const rows=(await stored()).drafts.filter(d=>d.entry.exercises[0].name==="둘째 창 운동");
     return rows.some(d=>d.entry.exercises[0].sets[0].kg==="33") && rows.some(d=>d.entry.exercises[0].sets[0].kg==="44");
   });
-  await Promise.all([tab("today"),other.click('[data-tab="today"]')]);
+  await Promise.all([tab("today"),other.tab("today")]);
   await Promise.all([action("fresh"),other.action("fresh")]);
   await Promise.all([input(name,"동시 기록 A"),other.input(name,"동시 기록 B")]);
   await until("simultaneous first keystrokes from two tabs",async()=>{
@@ -203,7 +223,7 @@ try {
     const saved=(await stored()).entries.map(e=>e.exercises[0].name);
     return saved.filter(n=>n==="동시 기록 A").length===1 && saved.filter(n=>n==="동시 기록 B").length===1;
   });
-  await Promise.all([send("Page.reload"),other.send("Page.reload")]);
+  await Promise.all([reload(),other.reload()]);
   await tab("journal");
   await until("both records visible after cold reload",async()=>{
     const contents=await evaluate("document.querySelector('#screen').innerText");
@@ -213,7 +233,7 @@ try {
   await until("new draft before immediate reload",async()=>(await stored()).drafts.some(d=>d.entry.exercises[0].name==="새로고침 직전 세트"));
   const previousLoad=await evaluate("performance.timeOrigin");
   await evaluate("{const field=document.querySelector("+JSON.stringify(weight)+");field.value='17.';field.dispatchEvent(new Event('input',{bubbles:true}));location.reload();}");
-  await until("reloaded document",()=>evaluate("performance.timeOrigin!=="+previousLoad+" && document.readyState==='complete'"));
+  await app.waitForDocumentChange(previousLoad);
   await until("last keystroke after immediate reload",async()=>(
     await stored()).drafts.find(d=>d.entry.exercises[0].name==="새로고침 직전 세트")?.entry.exercises[0].sets[0].kg==="17.");
   await expectValue(weight,"17.");
