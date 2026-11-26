@@ -61,10 +61,34 @@ public struct ExerciseCatalog: Decodable {
 }
 
 extension Exercise {
+    private var catalogUnitKey: String { "catalog-unit-\(id)" }
+
+    private var hasDefaultCatalogSets: Bool {
+        drill == nil && unit == .reps && restSeconds == nil && sets.count == 1
+            && sets[0].amount == 10 && sets[0].weightKg == nil && sets[0].side == .unspecified
+    }
+
     public var isBlankCatalogRow: Bool {
-        key.isEmpty && drill == nil && unit == .reps && restSeconds == nil
-            && equipment.isEmpty && note.isEmpty && sets.count == 1 && sets[0].amount == 10
-            && sets[0].weightKg == nil && sets[0].side == .unspecified
+        key.isEmpty && equipment.isEmpty && note.isEmpty && hasDefaultCatalogSets
+    }
+
+    // Keep the unit choice alongside this draft's raw set inputs, across dismissal and relaunch.
+    public func beginCatalogNameEdit(in inputs: inout [String: String]) {
+        if inputs[catalogUnitKey] == nil {
+            inputs[catalogUnitKey] = isBlankCatalogRow ? "automatic" : "manual"
+        }
+    }
+
+    public func keepCatalogUnit(in inputs: inout [String: String]) {
+        inputs[catalogUnitKey] = "manual"
+    }
+
+    public mutating func selectFromCatalog(_ item: CatalogExercise, inputs: inout [String: String]) {
+        guard drill == nil else { return }
+        let automatic = inputs[catalogUnitKey].map { $0 == "automatic" } ?? isBlankCatalogRow
+        let typedNumbers = sets.contains { inputs["amount-\($0.id)"] != nil || inputs["weight-\($0.id)"] != nil }
+        keepCatalogUnit(in: &inputs)
+        selectFromCatalog(item, useDefaultUnit: automatic && hasDefaultCatalogSets && !typedNumbers)
     }
 
     public mutating func selectFromCatalog(_ item: CatalogExercise, useDefaultUnit: Bool) {

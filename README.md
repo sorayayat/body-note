@@ -112,6 +112,12 @@ bash Scripts/test-ios-beta.sh
 
 Swift 패키지 테스트는 일지·성장·코칭 로직을 검사합니다. 마지막 명령은 Mac에서 iOS 26 이상 SDK와 Foundation Models를 확인하고 iPhone용 Release 빌드와 시뮬레이터 UI 테스트를 실행합니다. Xcode 설정의 **Components**에서 iOS 26 이상 시뮬레이터를 설치할 수 있습니다. UI 테스트는 각각 별도 일지로 기록 입력·도감 왕복·재실행·확정, 기본 루틴 복사, 부위와 별칭으로 검색한 동작 선택, 코치의 미전송 문장 복원을 확인합니다. [UI 테스트](BodyNoteUITests/WorkoutJournalUITests.swift) · [검증 스크립트](Scripts/test-ios-beta.sh) · [GitHub Actions](.github/workflows/ios.yml)
 
+### 베타 가용률 측정
+
+운동 기록 작성·복원·확정, 기본 루틴 불러오기, 부위·별칭으로 동작 선택, 미전송 코치 메시지 복원을 검사합니다. 같은 커밋에서 각 여정을 서로 다른 일지로 다섯 번 실행합니다. iPhone 시뮬레이터와 Windows Edge가 **각각 20회 중 19회 이상** 끝까지 성공하면 목표인 95%를 충족합니다. 실패·누락도 전체 20회에 포함합니다.
+
+커밋 메시지에 `[availability]`가 있는 푸시 또는 수동 실행으로 측정합니다. 해당 Actions 실행의 요약에 환경·여정·회차별 결과가 남습니다. 수정 후에는 새 커밋의 40회를 다시 측정합니다. [가용률 워크플로](.github/workflows/beta-availability.yml)
+
 ## 아트 리소스
 
 훈련장 배지는 제공된 디자인 초안에서 추출했습니다. 훈련장을 열면 배경 위에 동물·유니폼·동작을 겹쳐 표시합니다. 앱과 Windows 시안이 같은 파일을 사용합니다. [아트 카탈로그](BodyNote/Assets.xcassets)

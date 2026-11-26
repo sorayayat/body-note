@@ -103,19 +103,15 @@ struct CatalogExerciseDetail: View {
 
 struct CatalogNameField: View {
     @Binding var exercise: Exercise
+    @Binding var inputs: [String: String]
     @FocusState private var isTyping: Bool
     @State private var libraryOpen = false
-    @State private var maySetUnit: Bool
-    let hasTypedNumbers: Bool
-
-    init(exercise: Binding<Exercise>, hasTypedNumbers: Bool) {
-        _exercise = exercise
-        self.hasTypedNumbers = hasTypedNumbers
-        _maySetUnit = State(initialValue: exercise.wrappedValue.isBlankCatalogRow)
-    }
 
     var body: some View {
-        TextField("운동 이름", text: $exercise.name).focused($isTyping)
+        TextField("운동 이름", text: Binding(get: { exercise.name }, set: { name in
+            exercise.beginCatalogNameEdit(in: &inputs)
+            exercise.name = name
+        })).focused($isTyping)
             .accessibilityIdentifier("exercise.name")
         if isTyping && !exercise.key.isEmpty {
             ForEach(ExerciseCatalog.bundled.search(exercise.name).prefix(4)) { item in
@@ -144,13 +140,10 @@ struct CatalogNameField: View {
                     } }
             }
         }
-        .onChange(of: exercise.sets) { maySetUnit = false }
-        .onChange(of: exercise.unit) { maySetUnit = false }
     }
 
     private func select(_ item: CatalogExercise) {
-        exercise.selectFromCatalog(item, useDefaultUnit: maySetUnit && !hasTypedNumbers)
-        maySetUnit = false
+        exercise.selectFromCatalog(item, inputs: &inputs)
         isTyping = false
         libraryOpen = false
     }

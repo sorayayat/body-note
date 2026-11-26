@@ -463,8 +463,8 @@ function goalView() {
     + "<h3>목표를 채운 기록</h3>" + rows(contributing(g));
 }
 
-function render(navigate = false) {
-  const views = { today: trainingHome, coach: coachView,
+function render(navigate = false, companion) {
+  const views = { today: trainingHome, coach: () => coachView(companion),
     "tracking-day": () => backButton()+heading(dayLabel(page().date))+rows(latest().filter(e=>e.day===page().date)), profile: profileView, news: newsView,
     "sport-help": () => backButton()+heading("훈련 스킨")+muted("새 일지에 입힐 스킨을 고르세요. 훈련을 확정하면 그날의 선수와 스킨이 일지와 훈련장에 보여요."), journal: journalView, adventure: adventureView, detail: detailView,
     exercise: exerciseView, editor: editorView, library: libraryView, "catalog-info": catalogDetailView,
@@ -482,7 +482,7 @@ function render(navigate = false) {
   const isCoach = page().view === "coach";
   $("#screen").classList.toggle("home-screen", isHome);
   $("#record-bar").hidden = !(isHome || isCoach);
-  $("#record-bar").innerHTML = isHome ? recordButton() : isCoach ? coachComposer() : "";
+  $("#record-bar").innerHTML = isHome ? recordButton() : isCoach ? coachComposer(companion) : "";
   renderLocker();
   paintIcons();
   if (navigate) { $("#screen").scrollTop = isCoach ? $("#screen").scrollHeight : 0; $("#screen").focus({ preventScroll: true }); }
@@ -531,7 +531,7 @@ function confirmEntry() {
 }
 
 listenToWrites(document,"input", ({target: t}, value) => {
-  if (rememberForm(t.id,value)) return;
+  if (rememberForm(t.id,value,t.dataset.formKey)) return;
   if (t.id === "routine-name") { page().routineName = value; persistEditor(); return; }
   if (t.id === "catalog-query") {
     page().query = value;
@@ -614,7 +614,7 @@ listenToWrites(document,"click", (event, submission) => {
   case "tracking-day": go("tracking-day",{date:value}); break;
   case "adventure": go("adventure"); break;
   case "coach-prompt": {
-    const input = $("#coach-input"); input.value = value; rememberForm(input.id,value); input.focus(); break;
+    const input = $("#coach-input"); input.value = value; rememberForm(input.id,value,input.dataset.formKey); input.focus(); break;
   }
   case "coach-send": sendCoach(submission); break;
   case "routines": go("routines"); break;

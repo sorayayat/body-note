@@ -17,6 +17,43 @@ async function loadExamples(app) {
   return (await app.stored()).entries;
 }
 
+test("세트 간 휴식이 숨겨지면 운동 기록과 루틴을 저장할 수 있다", async t => {
+  for (const isRoutine of [false, true]) {
+    await t.test(isRoutine ? "루틴의 단위를 초로 바꿀 때" : "일지의 마지막 한 세트만 남길 때",
+      () => withPreview(async ({app}) => {
+        if (isRoutine) {
+          await app.action("routines");
+          await app.action("routine-new");
+          await app.input("#routine-name", "가벼운 운동");
+        } else {
+          await app.action("new");
+        }
+        await app.input(exerciseName, "스쿼트");
+        await app.action("set-add");
+        const rest = '[data-field="restSeconds"]';
+        const save = isRoutine ? "routine-save" : "confirm";
+        await app.input(rest, "3.");
+        await app.action(save);
+        await afterWrites(app);
+        assert.match(await app.evaluate("document.querySelector('#notice').textContent"), /세트 간 휴식/);
+
+        if (isRoutine) await app.input('[data-field="unit"]', "초");
+        else await app.click('[data-action="set-drop"][data-set="1"]');
+        await afterWrites(app);
+        assert.equal(await app.visible(rest), false);
+        await app.action(save);
+        await afterWrites(app);
+        const notebook = await app.stored();
+        const saved = isRoutine ? notebook.routines : notebook.entries;
+        assert.equal(saved?.length, 1);
+        const [exercise] = saved[0].exercises;
+        assert.equal(exercise.sets.length, isRoutine ? 2 : 1);
+        assert.equal(exercise.unit, isRoutine ? "초" : "회");
+        assert.equal(exercise.restSeconds, undefined);
+      }));
+  }
+});
+
 test("도감을 새로고침하면 검색어와 선택한 부위를 함께 복원한다", () => withPreview(async ({app}) => {
   await app.tab("journal");
   await app.action("library");
@@ -123,3 +160,86 @@ test("다른 창에서 원본 기록을 바꿔도 숙련 목표를 잘못 저장
     }));
   }
 });
+
+test("다른 창에서 확정한 세트를 코치가 답변에 포함하고 다른 창의 미전송 글도 보관한다",
+  () => withPreview(async ({app, newTab}) => {
+    const question = "최근 운동을 돌아볼래";
+    const pending = "다음 세션에 대해 이야기하고 싶어";
+    await app.tab("coach");
+    await app.input("#coach-input", question);
+    await afterWrites(app);
+
+    const other = await newTab();
+    await other.action("new");
+    await other.input(exerciseName, "케이블 로우");
+    await other.action("set-add");
+    await other.action("confirm");
+    await afterWrites(other);
+    assert.equal((await other.stored()).entries[0].exercises[0].sets.length, 2);
+    await other.tab("coach");
+    await other.input("#coach-input", pending);
+    await afterWrites(other);
+
+    await app.action("coach-send");
+    await afterWrites(app);
+    const result = await app.stored();
+    const [turn] = result.coachTurns;
+    assert.equal(turn.question, question);
+    assert.equal(turn.topic, "review");
+    assert.match(turn.answer, /1일에 걸쳐 1회 운동했고 2세트/u);
+    assert.equal(await app.evaluate("document.querySelector('.coach-turn p').textContent"), turn.answer);
+    assert.equal(result.formInputs["chat-cat"], pending);
+    assert.equal(await app.value("#coach-input"), pending);
+  }));
+
+test("코치는 화면에서 선택한 동물의 최신 대화를 이어가고 보내는 중 쓴 다음 글을 보관한다",
+  () => withPreview(async ({app, newTab}) => {
+    const followUp = "그다음은 어떻게 하지?";
+    const dogDraft = "강아지와 이어갈 이야기";
+    await app.tab("coach");
+    await app.input("#coach-input", followUp);
+    await afterWrites(app);
+
+    const other = await newTab();
+    await other.tab("coach");
+    await other.input("#coach-input", "경기 전에 긴장돼");
+    await other.action("coach-send");
+    await afterWrites(other);
+    await other.click(action("locker-animal", "value", "dog"));
+    await other.input("#coach-input", "실수해서 자신이 없어");
+    await other.action("coach-send");
+    await other.input("#coach-input", dogDraft);
+    await afterWrites(other);
+
+    await app.action("coach-send");
+    await afterWrites(app);
+    const before = await app.stored();
+    const [cat, dog, reply] = before.coachTurns;
+    assert.deepEqual([cat.topic, dog.topic, reply.topic], ["focus", "confidence", "focus"]);
+    assert.equal(reply.athlete.animal, "cat");
+    assert.equal(reply.question, followUp);
+    assert.match(reply.answer, /그 순간에 네가 직접 바꿀/u);
+    assert.equal(before.athlete.animal, "dog");
+    assert.equal(await app.evaluate("document.querySelector('#screen .record-portrait').dataset.animal"), "cat");
+    assert.equal(await app.evaluate("document.querySelector('.coach-turn:last-child p').textContent"), reply.answer);
+
+    const outgoing = "최근 운동 기록을 알려줘";
+    const nextInput = "다음으로 보낼 새 문장";
+    await app.input("#coach-input", outgoing);
+    await afterWrites(app);
+    await app.evaluate(`{
+      const field = document.querySelector("#coach-input");
+      document.querySelector('[data-action="coach-send"]').click();
+      field.value = ${JSON.stringify(nextInput)};
+      field.dispatchEvent(new Event("input", {bubbles: true}));
+    }`);
+    await afterWrites(app);
+    const final = await app.stored();
+    assert.equal(final.coachTurns.length, 4);
+    assert.equal(final.coachTurns.at(-1).question, outgoing);
+    assert.equal(final.coachTurns.at(-1).athlete.animal, "cat");
+    assert.equal(final.athlete.animal, "dog");
+    assert.equal(final.formInputs["chat-cat"], nextInput);
+    assert.equal(final.formInputs["chat-dog"], dogDraft);
+    assert.equal(await app.value("#coach-input"), nextInput);
+  }));

@@ -147,6 +147,18 @@ final class WorkoutJournalUITests: XCTestCase {
         XCTAssertTrue(record.waitForExistence(timeout: 10))
         record.tap()
         XCTAssertTrue(app.navigationBars["오늘의 기록"].waitForExistence(timeout: 5))
+        let name = app.textFields["exercise.name"]
+        reveal(name, in: app, swipingUp: true)
+        name.tap()
+        name.typeText("fore")
+        assertValue("fore", in: name)
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+        XCTAssertTrue(app.navigationBars["오늘의 기록"].waitForExistence(timeout: 5))
+        reveal(name, in: app, swipingUp: true)
+        assertValue("fore", in: name)
         let library = app.buttons["exercise.library"]
         reveal(library, in: app, swipingUp: true)
         library.tap()
@@ -170,7 +182,6 @@ final class WorkoutJournalUITests: XCTestCase {
         reveal(select, in: app, swipingUp: true)
         select.tap()
         XCTAssertTrue(app.navigationBars["오늘의 기록"].waitForExistence(timeout: 5))
-        let name = app.textFields["exercise.name"]
         reveal(name, in: app, swipingUp: false)
         assertValue("플랭크", in: name)
         let seconds = app.textFields["1세트 시간 (초)"]

@@ -51,7 +51,7 @@ public struct WorkoutDraft: Codable, Identifiable, Equatable {
         guard result.kind != .rest else { return result }
         for e in result.exercises.indices where result.exercises[e].drill == nil {
             var exercise = result.exercises[e]
-            if (exercise.unit != .reps || exercise.sets.count < 2), numbers["rest-\(exercise.id)"] != nil {
+            if exercise.unit != .reps || exercise.sets.count < 2 {
                 exercise.restSeconds = nil
             } else if let text = numbers["rest-\(exercise.id)"] {
                 let rest = Int(text)

@@ -71,6 +71,24 @@ final class WorkoutMVPTests: XCTestCase {
         XCTAssertTrue(right.preview?.contains("44 kg") == true)
     }
 
+    func testRestInputOnlyAppliesToMultipleRepSetsWhenSaving() throws {
+        var source = workout(sets: 2)
+        source.exercises[0].restSeconds = 60
+        let key = "rest-\(source.exercises[0].id)"
+        var draft = WorkoutDraft(source)
+        draft.entry.exercises[0].unit = .seconds
+        XCTAssertNil(try draft.resolvedEntry().exercises[0].restSeconds)
+        draft.numbers[key] = "3."
+        XCTAssertNil(try draft.resolvedEntry().exercises[0].restSeconds)
+        draft.entry.exercises[0].unit = .reps
+        XCTAssertThrowsError(try draft.resolvedEntry())
+        draft.numbers[key] = "30"
+        XCTAssertEqual(try draft.resolvedEntry().exercises[0].restSeconds, 30)
+        draft.entry.exercises[0].sets.removeLast()
+        XCTAssertNil(try draft.resolvedEntry().exercises[0].restSeconds)
+        XCTAssertEqual(source.exercises[0].restSeconds, 60)
+    }
+
     func testEditAndCopyKeepOriginalDateLaterFollowUpAndSeparateIDs() throws {
         var book = Notebook()
         var original = workout()

@@ -1,0 +1,86 @@
+name: Beta journey availability
+
+on: [push, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[availability]')
+    name: ${{ matrix.platform.id }} / round ${{ matrix.round }}
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        round: [1, 2, 3, 4, 5]
+        platform:
+          - { id: ios, runner: macos-26 }
+          - { id: edge, runner: windows-latest }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        if: matrix.platform.id == 'edge'
+        with:
+          node-version: 24
+      - name: Run the four journeys on an iPhone simulator
+        id: simulator
+        if: matrix.platform.id == 'ios'
+        continue-on-error: true
+        env:
+          WORKOUT_UI_RESULT_PATH: ${{ runner.temp }}/WorkoutLog.xcresult
+        run: bash Scripts/test-ios-beta.sh
+      - name: Read individual XCTest results
+        id: parse
+        if: ${{ !cancelled() && matrix.platform.id == 'ios' }}
+        continue-on-error: true
+        run: python3 Scripts/ios-availability.py --result "${{ runner.temp }}/WorkoutLog.xcresult" --round ${{ matrix.round }} --commit ${{ github.sha }} --out "${{ runner.temp }}/ios-${{ matrix.round }}.json"
+      - name: Run the four journeys in Windows Edge
+        if: matrix.platform.id == 'edge'
+        continue-on-error: true
+        run: node Scripts/preview-availability.mjs --round ${{ matrix.round }} --commit ${{ github.sha }} --out "${{ runner.temp }}/edge-${{ matrix.round }}.json"
+      - name: Upload round results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: availability-${{ github.run_attempt }}-${{ matrix.platform.id }}-${{ matrix.round }}
+          path: ${{ runner.temp }}/${{ matrix.platform.id }}-${{ matrix.round }}.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Retain failed XCTest evidence
+        if: ${{ !cancelled() && matrix.platform.id == 'ios' && (steps.simulator.outcome == 'failure' || steps.parse.outcome == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-failure-${{ github.run_attempt }}-${{ matrix.round }}
+          path: ${{ runner.temp }}/WorkoutLog.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  report:
+    name: Check 95% on each platform
+    needs: measure
+    if: ${{ always() && needs.measure.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check result parsing and the per-platform threshold
+        run: python3 -m unittest discover -s Scripts -p 'test*availability*.py'
+      - uses: actions/download-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          pattern: availability-${{ github.run_attempt }}-*
+          path: round-results
+      - name: Count all forty scheduled journeys
+        if: ${{ !cancelled() }}
+        run: python3 Scripts/summarize-availability.py --input round-results --commit "${{ github.sha }}" --out availability.md
+      - name: Publish the measured rates
+        if: ${{ !cancelled() && hashFiles('availability.md') != '' }}
+        run: cat availability.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain the report
+        if: ${{ !cancelled() && hashFiles('availability.md') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-availability-report-${{ github.run_attempt }}
+          path: availability.md
+          retention-days: 30

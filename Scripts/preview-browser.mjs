@@ -7,6 +7,16 @@ import path from "node:path";
 import {setTimeout as pause} from "node:timers/promises";
 
 const previewURL = new URL("../Preview/index.html", import.meta.url).href;
+const protocolTimeout = 10000;
+
+function boundedProtocol(label,promise) {
+  let timer;
+  const timeout = new Promise((_,reject)=>{
+    timer=setTimeout(()=>reject(Error("Browser did not respond to "+label)),protocolTimeout);
+    timer.unref();
+  });
+  return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
+}
 
 export async function until(label, read) {
   const end = Date.now()+10000;
@@ -16,7 +26,7 @@ export async function until(label, read) {
 async function connect(address, sockets, exceptions) {
   const socket = new WebSocket(address);
   sockets.push(socket);
-  await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;});
+  await boundedProtocol("a new connection",new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;}));
   const pending = new Map();
   let seq = 0;
   socket.onmessage = ({data})=>{
@@ -28,11 +38,12 @@ async function connect(address, sockets, exceptions) {
     if (error) reject(Error(error.message)); else resolve(result);
   };
   socket.onclose = ()=>{for (const task of pending.values()) task.reject(Error("Browser closed")); pending.clear();};
-  const send = (method,params={})=>new Promise((resolve,reject)=>{
+  const send = (method,params={})=>boundedProtocol(method,new Promise((resolve,reject)=>{
+    if (socket.readyState!==WebSocket.OPEN) { reject(Error("Browser closed before "+method)); return; }
     const id=++seq;
     pending.set(id,{resolve,reject});
     socket.send(JSON.stringify({id,method,params}));
-  });
+  }));
   const evaluate = async expression=>{
     const result = await send("Runtime.evaluate",{expression,returnByValue:true,awaitPromise:true});
     if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
@@ -75,8 +86,8 @@ async function connect(address, sockets, exceptions) {
     stored:()=>evaluate("JSON.parse(localStorage.getItem('body-note-demo.v1'))")};
 }
 
-export async function withPreview(run) {
-  const binary = [process.env.WORKOUT_TEST_BROWSER, process.env.CHROME_BIN,
+export async function withPreview(run, {binary: requestedBinary, onBrowserReady} = {}) {
+  const binary = requestedBinary ?? [process.env.WORKOUT_TEST_BROWSER, process.env.CHROME_BIN,
     "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
     "C:/Program Files/Google/Chrome/Application/chrome.exe",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -103,13 +114,15 @@ export async function withPreview(run) {
     await until("test browser startup", () => existsSync(portFile));
     const port = Number((await readFile(portFile, "utf8")).split("\n")[0].trim());
     const endpoint = "http://127.0.0.1:" + port;
-    const pages = await (await fetch(endpoint + "/json/list")).json();
+    const pages = await (await fetch(endpoint + "/json/list",{signal:AbortSignal.timeout(protocolTimeout)})).json();
     app = await connect(pages.find(item => item.type === "page").webSocketDebuggerUrl, sockets, exceptions);
+    if (onBrowserReady) await onBrowserReady(app);
     await app.send("Page.navigate", {url: previewURL});
     await until("initial preview screen", () => app.visible("#screen h2"));
 
     async function newTab() {
-      const response = await fetch(endpoint + "/json/new?" + encodeURIComponent(previewURL), {method: "PUT"});
+      const response = await fetch(endpoint + "/json/new?" + encodeURIComponent(previewURL),
+        {method:"PUT",signal:AbortSignal.timeout(protocolTimeout)});
       if (!response.ok) throw Error("Could not open a preview tab: " + response.status);
       const page = await response.json();
       const tab = await connect(page.webSocketDebuggerUrl, sockets, exceptions);

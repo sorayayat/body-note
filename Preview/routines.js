@@ -30,7 +30,7 @@ function normalizeExercises(exercises, original) {
       continue;
     }
     if (!ex.sets.length) throw Error("각 운동에 세트를 추가해 주세요.");
-    if (ex.restSeconds != null && ex.restSeconds !== "") {
+    if (ex.unit === "회" && ex.sets.length > 1 && ex.restSeconds != null && ex.restSeconds !== "") {
       ex.restSeconds = wholeNumber(ex.restSeconds);
       if (ex.restSeconds === null) throw Error("세트 간 휴식은 0초 이상의 정수로 입력해 주세요.");
     } else { delete ex.restSeconds; }

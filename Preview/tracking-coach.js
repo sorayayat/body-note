@@ -86,8 +86,7 @@ function coachReply(question, week, previous) {
   return {topic, answer:replies[topic]};
 }
 
-function coachView() {
-  const a = athlete();
+function coachView(a = athlete()) {
   const turns = (book.coachTurns ?? []).filter(t=>t.athlete.animal===a.animal);
   return heading("코치")+'<div class="record-look">'+recordPortrait(a)+'<div><strong>'+animals[a.animal]+' 코치</strong>'
     +muted("기록 돌아보기 · 경기 마음 준비")+'</div></div>'+muted("오프라인 기본 코칭")
@@ -95,25 +94,37 @@ function coachView() {
     +turns.map(t=>'<article class="coach-turn"><strong>'+esc(t.question)+'</strong><div>'+recordPortrait(t.athlete)+'<p>'+esc(t.answer)+'</p></div></article>').join("");
 }
 
-function coachComposer() {
-  return '<div class="coach-composer"><label class="field">동료에게 이야기하기<textarea id="coach-input" rows="2">'+esc(formText("coach-input"))+'</textarea></label>'
+function coachComposer(a = athlete()) {
+  const key = "chat-"+a.animal;
+  return '<div class="coach-composer"><label class="field">동료에게 이야기하기<textarea id="coach-input" rows="2" '
+    +'data-animal="'+esc(a.animal)+'" data-sport="'+esc(a.sport)+'" data-form-key="'+esc(key)+'">'
+    +esc(formText("coach-input","",key))+'</textarea></label>'
     +button("보내기","coach-send","primary")+'</div>';
 }
 
 function captureCoachSend(event) {
   if (!event.target.closest('button[data-action="coach-send"]')) return null;
   const field = $("#coach-input");
-  return {text:field.value, field, athlete:athlete()};
+  return {text:field.value, field, athlete:{animal:field.dataset.animal, sport:field.dataset.sport}};
 }
 function sendCoach(submission) {
   const a = submission.athlete, question = submission.text.trim();
   if (!question) { $("#coach-input").focus(); return; }
+  // Read inside this write transaction. Keep the editor's original base for conflict detection in save().
+  let current;
+  try {
+    const raw = currentStoredJSON();
+    current = raw === storedJSON ? book : readBook(raw);
+  } catch {
+    notify("최신 일지를 읽을 수 없어요. 입력한 이야기를 보관하고 있어요.");
+    return;
+  }
   const next = structuredClone(book);
-  const previous = (next.coachTurns ?? []).filter(t=>t.athlete.animal===a.animal).at(-1)?.topic;
-  const reply = coachReply(question, trackingWeek(next.entries), previous);
+  const previous = (current.coachTurns ?? []).findLast(t=>t.athlete.animal===a.animal)?.topic;
+  const reply = coachReply(question, trackingWeek(current.entries), previous);
   (next.coachTurns ??= []).push({id:uid(), athlete:a, question, ...reply});
   const key = "chat-"+a.animal;
   if (submission.field.value !== submission.text) (next.formInputs ??= {})[key] = submission.field.value;
-  else if (next.formInputs) delete next.formInputs[key];
-  if (save(next)) { render(); $("#screen").scrollTop = $("#screen").scrollHeight; $("#coach-input").focus(); }
+  else if (current.formInputs?.[key] === submission.text && next.formInputs) delete next.formInputs[key];
+  if (save(next)) { render(false,a); $("#screen").scrollTop = $("#screen").scrollHeight; $("#coach-input").focus(); }
 }

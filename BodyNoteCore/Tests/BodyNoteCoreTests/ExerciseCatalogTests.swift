@@ -57,4 +57,55 @@ final class ExerciseCatalogTests: XCTestCase {
         XCTAssertEqual(copy.restSeconds, 60)
         XCTAssertEqual(original.exercises, [custom])
     }
+
+    func testPartlyTypedFreshNameStillAdoptsCatalogUnitAfterDiskReload() throws {
+        let plank = try XCTUnwrap(catalog.search("forearm plank").first)
+        let file = NotebookFile(url: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        defer { try? FileManager.default.removeItem(at: file.url) }
+        var draft = WorkoutDraft(JournalEntry())
+        draft.entry.exercises[0].beginCatalogNameEdit(in: &draft.numbers)
+        draft.entry.exercises[0].name = "fore"
+        var book = Notebook()
+        book.keepDraft(draft)
+        try file.save(book)
+        var reopened = try XCTUnwrap(file.load().drafts.first)
+        XCTAssertEqual(reopened.entry.exercises[0].name, "fore")
+        XCTAssertFalse(reopened.entry.exercises[0].isBlankCatalogRow)
+        reopened.entry.exercises[0].selectFromCatalog(plank, inputs: &reopened.numbers)
+        XCTAssertEqual(reopened.entry.exercises[0].name, plank.name)
+        XCTAssertEqual(reopened.entry.exercises[0].unit, .seconds)
+        XCTAssertEqual(reopened.entry.exercises[0].sets, draft.entry.exercises[0].sets)
+    }
+
+    func testCopiedOrExplicitlyConfiguredUnitsSurviveCatalogRename() throws {
+        let plank = try XCTUnwrap(catalog.search("plank").first)
+        let original = JournalEntry(exercises: [Exercise(name: "Row")])
+        var book = Notebook()
+        try book.saveRoutine(name: "Morning", kind: .training, exercises: original.exercises)
+        for entry in [original, original.draftForToday(), book.newTrainingDraft()] {
+            var row = entry.exercises[0]
+            var inputs: [String: String] = [:]
+            row.beginCatalogNameEdit(in: &inputs)
+            row.name = ""
+            row.beginCatalogNameEdit(in: &inputs)
+            row.name = "pla"
+            row.selectFromCatalog(plank, inputs: &inputs)
+            XCTAssertEqual(row.unit, .reps)
+        }
+        for field in ["amount", "weight", "unit"] {
+            var row = Exercise()
+            var inputs: [String: String] = [:]
+            row.beginCatalogNameEdit(in: &inputs)
+            row.name = "pla"
+            if field == "unit" {
+                row.keepCatalogUnit(in: &inputs)
+                row.unit = .seconds
+                row.unit = .reps
+            } else {
+                inputs["\(field)-\(row.sets[0].id)"] = field == "amount" ? "10" : ""
+            }
+            row.selectFromCatalog(plank, inputs: &inputs)
+            XCTAssertEqual(row.unit, .reps, field)
+        }
+    }
 }

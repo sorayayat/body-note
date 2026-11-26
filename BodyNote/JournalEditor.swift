@@ -222,9 +222,7 @@ private struct ExerciseEditor: View {
 
     var body: some View {
         if exercise.drill == nil {
-            CatalogNameField(exercise: $exercise, hasTypedNumbers: exercise.sets.contains {
-                numbers["amount-\($0.id)"] != nil || numbers["weight-\($0.id)"] != nil
-            })
+            CatalogNameField(exercise: $exercise, inputs: $numbers)
         } else {
             TextField("운동 이름", text: $exercise.name)
         }
@@ -244,7 +242,10 @@ private struct ExerciseEditor: View {
     @ViewBuilder private var setFields: some View {
         let showSides = enteringSides || kind == .rehab || exercise.sets.contains { $0.side != .unspecified }
         TextField("도구 · 밴드 색 (선택)", text: $exercise.equipment)
-        Picker("기록 단위", selection: $exercise.unit) {
+        Picker("기록 단위", selection: Binding(get: { exercise.unit }, set: { unit in
+            exercise.keepCatalogUnit(in: &numbers)
+            exercise.unit = unit
+        })) {
             ForEach(ExerciseUnit.allCases, id: \.self) { Text($0.title).tag($0) }
         }
         if !showSides {
@@ -275,6 +276,7 @@ private struct ExerciseEditor: View {
                     if exercise.sets.count > 1 {
                         Button(role: .destructive) {
                             let id = set.id
+                            exercise.keepCatalogUnit(in: &numbers)
                             exercise.sets.removeAll { $0.id == id }
                         } label: {
                             Image(systemName: "minus.circle")
@@ -283,7 +285,10 @@ private struct ExerciseEditor: View {
                     }
                 }
                 if showSides {
-                    Picker("\(number)세트 방향", selection: $set.side) {
+                    Picker("\(number)세트 방향", selection: Binding(get: { set.side }, set: { side in
+                        exercise.keepCatalogUnit(in: &numbers)
+                        set.side = side
+                    })) {
                         ForEach(BodySide.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.menu)
@@ -294,6 +299,7 @@ private struct ExerciseEditor: View {
         .monospacedDigit()
         .padding(.vertical, 4)
         Button {
+            exercise.keepCatalogUnit(in: &numbers)
             let last = exercise.sets.last
             let added = last?.copied() ?? TrainingSet()
             if let last {

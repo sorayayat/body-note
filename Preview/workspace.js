@@ -182,9 +182,8 @@ function formKey(id, ctx = page()) {
   if (id === "skill-target") return ctx.condition ? id+":"+JSON.stringify([ctx.id,ctx.condition]) : null;
   return ["goal-name","goal-target"].includes(id) ? id : null;
 }
-function formText(id, fallback = "") { return unsavedForms.get(formKey(id)) ?? book.formInputs?.[formKey(id)] ?? fallback; }
-function rememberForm(id, text) {
-  const key = formKey(id);
+function formText(id, fallback = "", key = formKey(id)) { return unsavedForms.get(key) ?? book.formInputs?.[key] ?? fallback; }
+function rememberForm(id, text, key = formKey(id)) {
   if (!key) return false;
   unsavedForms.set(key,text);
   flushForms();
