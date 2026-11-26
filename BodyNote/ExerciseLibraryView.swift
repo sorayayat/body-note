@@ -5,12 +5,14 @@ struct ExerciseLibraryView: View {
     var onSelect: ((CatalogExercise) -> Void)? = nil
     @State private var query = ""
     @State private var region: String?
+    @State private var selectedExerciseID: String?
     private let catalog = ExerciseCatalog.bundled
 
     var body: some View {
         let results = catalog.search(query, region: region)
-        List {
-            Section("훈련 부위") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("훈련 부위").font(.headline).accessibilityAddTraits(.isHeader)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 8) {
                     ForEach(["전체"] + catalog.regions, id: \.self) { label in
                         let value: String? = label == "전체" ? nil : label
@@ -25,8 +27,8 @@ struct ExerciseLibraryView: View {
                         .accessibilityAddTraits(selected ? .isSelected : [])
                     }
                 }
-            }
-            Section("동작 \(results.count)개") {
+                Text("동작 \(results.count)개").font(.headline).accessibilityAddTraits(.isHeader)
+                    .padding(.top, 6)
                 if results.isEmpty {
                     ContentUnavailableView("찾은 동작이 없어요", systemImage: "magnifyingglass",
                                            description: Text("다른 단어나 훈련 부위를 선택해 보세요."))
@@ -34,7 +36,7 @@ struct ExerciseLibraryView: View {
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 126), spacing: 12)], alignment: .leading, spacing: 14) {
                     ForEach(results) { item in
-                        NavigationLink { CatalogExerciseDetail(item: item, onSelect: onSelect) } label: {
+                        Button { selectedExerciseID = item.id } label: {
                             VStack(alignment: .leading, spacing: 5) {
                                 ExerciseArtwork(item: item).frame(height: 100)
                                 Text(item.name).font(.headline).foregroundStyle(.primary)
@@ -48,6 +50,12 @@ struct ExerciseLibraryView: View {
                         .accessibilityIdentifier("exercise.item." + item.id)
                     }
                 }
+            }
+            .padding()
+        }
+        .navigationDestination(item: $selectedExerciseID) { id in
+            if let item = catalog.items.first(where: { $0.id == id }) {
+                CatalogExerciseDetail(item: item, onSelect: onSelect)
             }
         }
         .navigationTitle("동작 도감").navigationBarTitleDisplayMode(.inline)

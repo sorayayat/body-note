@@ -43,12 +43,12 @@ final class WorkoutJournalUITests: XCTestCase {
         reveal(name, in: app, swipingUp: true)
         name.tap()
         name.typeText("Beta Row")
-        XCTAssertEqual(name.value as? String, "Beta Row")
+        assertValue("Beta Row", in: name)
         let weight = app.textFields["1세트 무게 (kg)"]
         reveal(weight, in: app, swipingUp: true)
         weight.tap()
         weight.typeText("12.5")
-        XCTAssertEqual(weight.value as? String, "12.5")
+        assertValue("12.5", in: weight)
 
         let library = app.buttons["exercise.library"]
         reveal(library, in: app, swipingUp: false)
@@ -63,9 +63,9 @@ final class WorkoutJournalUITests: XCTestCase {
         XCTAssertTrue(closeLibrary.waitForExistence(timeout: 5))
         closeLibrary.tap()
         reveal(name, in: app, swipingUp: false)
-        XCTAssertEqual(name.value as? String, "Beta Row")
+        assertValue("Beta Row", in: name)
         reveal(weight, in: app, swipingUp: true)
-        XCTAssertEqual(weight.value as? String, "12.5")
+        assertValue("12.5", in: weight)
 
         app.terminate()
         app.launch()
@@ -74,9 +74,9 @@ final class WorkoutJournalUITests: XCTestCase {
         record.tap()
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         reveal(name, in: app, swipingUp: true)
-        XCTAssertEqual(name.value as? String, "Beta Row")
+        assertValue("Beta Row", in: name)
         reveal(weight, in: app, swipingUp: true)
-        XCTAssertEqual(weight.value as? String, "12.5")
+        assertValue("12.5", in: weight)
         let confirm = app.buttons["workout.confirm"]
         reveal(confirm, in: app, swipingUp: true)
         confirm.tap()
@@ -100,17 +100,27 @@ final class WorkoutJournalUITests: XCTestCase {
         assertAboveTabBar(input, in: app)
         input.tap()
         input.typeText("Game plan")
-        XCTAssertEqual(input.value as? String, "Game plan")
+        assertValue("Game plan", in: input)
         app.terminate()
         app.launch()
         XCTAssertTrue(coach.waitForExistence(timeout: 10))
         coach.tap()
         XCTAssertTrue(input.waitForExistence(timeout: 5))
-        XCTAssertEqual(input.value as? String, "Game plan")
+        assertValue("Game plan", in: input)
         app.buttons["최근 운동을 돌아볼래"].tap()
         app.buttons["coach.send"].tap()
         let reply = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "확정한 운동이 아직 없어")).firstMatch
         XCTAssertTrue(reply.waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    private func assertValue(_ expected: String, in field: XCUIElement,
+                             file: StaticString = #filePath, line: UInt = #line) {
+        let completeValue = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected),
+                                                      object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [completeValue], timeout: 10), .completed,
+            "입력란에 전체 값 '\(expected)'이 표시되어야 합니다. 현재 값: \(String(describing: field.value))",
+            file: file, line: line)
     }
 
     @MainActor
