@@ -90,6 +90,95 @@ final class WorkoutJournalUITests: XCTestCase {
     }
 
     @MainActor
+    func testFirstRoutinePrefillsTodayWithoutChangingTheTemplateOrCountingADraft() {
+        let app = launchSession()
+        let summary = weekSummary(days: 0, sets: 0, in: app)
+        XCTAssertTrue(summary.waitForExistence(timeout: 10))
+        let routines = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "내 루틴")).firstMatch
+        reveal(routines, in: app, swipingUp: true)
+        routines.tap()
+        let create = app.buttons["루틴 만들기"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5))
+        create.tap()
+
+        let title = app.textFields["루틴 이름"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("Morning Set")
+        let name = app.textFields["exercise.name"]
+        reveal(name, in: app, swipingUp: true)
+        name.tap()
+        name.typeText("Beta Row")
+        assertValue("Beta Row", in: name)
+        app.navigationBars["루틴 만들기"].buttons["저장"].tap()
+        let list = app.navigationBars["내 루틴"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["기본 루틴 해제"].exists)
+        list.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+
+        let record = app.buttons["workout.record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        record.tap()
+        let editor = app.navigationBars["오늘의 기록"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        reveal(name, in: app, swipingUp: true)
+        assertValue("Beta Row", in: name)
+        let addSet = app.buttons["세트 추가"]
+        reveal(addSet, in: app, swipingUp: true)
+        addSet.tap()
+        let secondSet = app.textFields["2세트 횟수 (회)"]
+        reveal(secondSet, in: app, swipingUp: true)
+        assertValue("10", in: secondSet)
+        editor.buttons["닫기"].tap()
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+
+        reveal(routines, in: app, swipingUp: true)
+        routines.tap()
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Morning Set"].exists)
+        XCTAssertTrue(app.staticTexts["Beta Row 1세트"].exists)
+    }
+
+    @MainActor
+    func testCatalogFiltersBySelectedBodyAreaAndAliasAndAppliesTheExerciseUnit() {
+        let app = launchSession()
+        let record = app.buttons["workout.record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+        XCTAssertTrue(app.navigationBars["오늘의 기록"].waitForExistence(timeout: 5))
+        let library = app.buttons["exercise.library"]
+        reveal(library, in: app, swipingUp: true)
+        library.tap()
+        let knee = app.buttons["무릎"]
+        XCTAssertTrue(knee.waitForExistence(timeout: 5))
+        knee.tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("forearm plank\n")
+        XCTAssertTrue(app.staticTexts["찾은 동작이 없어요"].waitForExistence(timeout: 5))
+
+        let core = app.buttons["코어"]
+        reveal(core, in: app, swipingUp: false)
+        core.tap()
+        let plank = app.buttons["exercise.item.plank"]
+        reveal(plank, in: app, swipingUp: true)
+        plank.tap()
+        XCTAssertTrue(app.navigationBars["플랭크"].waitForExistence(timeout: 5))
+        let select = app.buttons["이 동작 선택"]
+        reveal(select, in: app, swipingUp: true)
+        select.tap()
+        XCTAssertTrue(app.navigationBars["오늘의 기록"].waitForExistence(timeout: 5))
+        let name = app.textFields["exercise.name"]
+        reveal(name, in: app, swipingUp: false)
+        assertValue("플랭크", in: name)
+        let seconds = app.textFields["1세트 시간 (초)"]
+        reveal(seconds, in: app, swipingUp: true)
+        assertValue("10", in: seconds)
+    }
+
+    @MainActor
     func testUnsentCoachMessageSurvivesRelaunchAndEmptyHistoryHasNoInventedActivity() {
         let app = launchSession()
         let coach = app.buttons["코치"]
