@@ -569,7 +569,11 @@ listenToWrites(document,"change", ({target: t}) => {
 });
 listenToWrites(document,"click", (event, submission) => {
   const el = event.target.closest("button");
-  if (!el || !el.isConnected) return;
+  if (!el) return;
+  if (submission?.editor) {
+    // Adding a set redraws this editor's buttons while its save click is queued.
+    if (pendingBack || submission.editor !== page() || !draft || draft.id !== page().draftID) return;
+  } else if (!el.isConnected) return;
   if (el.dataset.tab) {
     // A pending history traversal must finish before a tab can push its new route.
     if (pendingBack) pendingBack.tab = el.dataset.tab;
@@ -737,7 +741,11 @@ listenToWrites(document,"click", (event, submission) => {
   }
   }
   if (page().draftID) persistEditor();
-},captureCoachSend);
+}, event => {
+  const action = event.target.closest("button")?.dataset.action;
+  if (action === "confirm" || action === "routine-save") return {editor:page()};
+  return action === "coach-send" ? captureCoachSend() : null;
+});
 function updateClock() { $("#clock").textContent = new Date().toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit", hour12:false }); }
 updateClock();
 setInterval(updateClock, 60000);

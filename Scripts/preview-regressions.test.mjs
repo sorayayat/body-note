@@ -192,6 +192,51 @@ test("다른 창에서 확정한 세트를 코치가 답변에 포함하고 다�
     assert.equal(await app.value("#coach-input"), pending);
   }));
 
+test("세트 추가 직후 저장을 두 번 눌러도 두 세트를 한 번만 저장한다", async t => {
+  for (const routine of [false, true]) {
+    await t.test(routine ? "루틴" : "운동 일지", () => withPreview(async ({app}) => {
+      if (routine) {
+        await app.action("routines");
+        await app.action("routine-new");
+        await app.input("#routine-name", "아침 운동");
+      } else {
+        await app.action("new");
+      }
+      await app.input(exerciseName, "스쿼트");
+      await afterWrites(app);
+      const save = routine ? "routine-save" : "confirm";
+      await app.evaluate(`{
+        const button = document.querySelector('[data-action="${save}"]');
+        document.querySelector('[data-action="set-add"]').click();
+        button.click();
+        button.click();
+      }`);
+      await afterWrites(app);
+      const notebook = await app.stored();
+      const saved = routine ? notebook.routines : notebook.entries;
+      assert.equal(saved?.length, 1);
+      assert.equal(saved[0].exercises[0].sets.length, 2);
+      assert.equal(notebook.drafts.length, 0);
+    }));
+  }
+});
+
+test("다른 화면으로 이동하면서 누른 이전 편집기의 확정은 초안을 유지한다", () => withPreview(async ({app}) => {
+  await app.action("new");
+  await app.input(exerciseName, "스쿼트");
+  await afterWrites(app);
+  await app.evaluate(`{
+    const confirm = document.querySelector('[data-action="confirm"]');
+    document.querySelector('[data-tab="coach"]').click();
+    confirm.click();
+  }`);
+  await afterWrites(app);
+  assert.ok(await app.visible("#coach-input"));
+  const notebook = await app.stored();
+  assert.equal(notebook.entries.length, 0);
+  assert.equal(notebook.drafts[0].entry.exercises[0].name, "스쿼트");
+}));
+
 test("코치는 화면에서 선택한 동물의 최신 대화를 이어가고 보내는 중 쓴 다음 글을 보관한다",
   () => withPreview(async ({app, newTab}) => {
     const followUp = "그다음은 어떻게 하지?";

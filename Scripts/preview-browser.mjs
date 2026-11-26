@@ -23,6 +23,30 @@ export async function until(label, read) {
   while (Date.now()<end) { if (await read()) return; await pause(50); }
   throw Error("Timed out: "+label);
 }
+
+const transientPortErrors = new Set(["ENOENT","EBUSY","EPERM","EACCES"]);
+const browserSocketPath = /^\/devtools\/browser\/[\da-fA-F]{8}(?:-[\da-fA-F]{4}){3}-[\da-fA-F]{12}$/u;
+
+export async function waitForDevToolsPort(file, read = readFile) {
+  let port;
+  await until("a readable, complete DevToolsActivePort file",async()=>{
+    let data;
+    try { data = await read(file,"utf8"); }
+    catch (error) {
+      if (transientPortErrors.has(error.code)) return false;
+      throw error;
+    }
+    // Edge can expose a partially written port before it finishes the browser WebSocket UUID.
+    const [number,socketPath] = data.split(/\r?\n/u);
+    if (!/^[1-9]\d{0,4}$/u.test(number) || !browserSocketPath.test(socketPath ?? "")) return false;
+    const candidate = Number(number);
+    if (candidate>65535) return false;
+    port = candidate;
+    return true;
+  });
+  return port;
+}
+
 async function connect(address, sockets, exceptions) {
   const socket = new WebSocket(address);
   sockets.push(socket);
@@ -111,8 +135,7 @@ export async function withPreview(run, {binary: requestedBinary, onBrowserReady}
   try {
     await started;
     const portFile = path.join(profile, "DevToolsActivePort");
-    await until("test browser startup", () => existsSync(portFile));
-    const port = Number((await readFile(portFile, "utf8")).split("\n")[0].trim());
+    const port = await waitForDevToolsPort(portFile);
     const endpoint = "http://127.0.0.1:" + port;
     const pages = await (await fetch(endpoint + "/json/list",{signal:AbortSignal.timeout(protocolTimeout)})).json();
     app = await connect(pages.find(item => item.type === "page").webSocketDebuggerUrl, sockets, exceptions);

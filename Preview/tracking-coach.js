@@ -102,8 +102,7 @@ function coachComposer(a = athlete()) {
     +button("보내기","coach-send","primary")+'</div>';
 }
 
-function captureCoachSend(event) {
-  if (!event.target.closest('button[data-action="coach-send"]')) return null;
+function captureCoachSend() {
   const field = $("#coach-input");
   return {text:field.value, field, athlete:{animal:field.dataset.animal, sport:field.dataset.sport}};
 }
