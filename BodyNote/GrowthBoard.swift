@@ -34,6 +34,7 @@ struct GrowthBoard: View {
             }
         }
         .sheet(item: $goalReading) { SkillTargetSheet(reading: $0) }
+        SideProgressSection(cards: book.sideProgress())
         if !book.skillGoals.isEmpty {
             Section("숙련 배지") {
                 ForEach(book.skillGoals) { goal in

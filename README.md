@@ -44,6 +44,12 @@ macOS의 Xcode 16 이상에서 [BodyNote.xcodeproj](BodyNote.xcodeproj)를 열�
 
 **이 조건으로 목표 만들기**에서 마지막 세트의 목표 횟수를 정합니다. 시작일부터 서로 다른 훈련 세 건에서 달성하면 숙련 배지를 받습니다. 스킨을 바꿔서 기록해도 같은 운동 조건이면 함께 셉니다.
 
+### 좌우 변화
+
+재활 기록에서는 세트마다 **왼쪽** 또는 **오른쪽**을 고릅니다. 일반 훈련에서는 **좌우 나눠 기록**을 누르면 같은 입력란이 열립니다. **오늘 → 기초 훈련장 기록판**, **모험**, **일지 → 운동별 → 운동 이름**에서 변화를 볼 수 있습니다.
+
+운동 이름·도구·중량·단위가 같은 기록을 모아, 각 방향에서 가장 최근에 확정한 두 일지의 마지막 해당 세트를 비교합니다. 예를 들어 같은 밴드에서 왼쪽은 8회에서 10회로, 오른쪽은 10회에서 10회로 바뀌면 각각 **+2회**, **동일**로 표시합니다. 두 방향을 다른 날 기록해도 각각의 날짜와 수치를 눌러 원래 일지를 열 수 있습니다. 한 쪽을 처음 기록하면 **첫 기록**, 한 번도 입력하지 않은 쪽은 **기록 없음**으로 표시합니다. 양쪽 동시 수행과 방향을 지정하지 않은 세트는 각 방향의 변화 계산에서 제외합니다.
+
 ## 주요 코드와 검증
 
 | 확인할 동작 | 위치 |
@@ -51,17 +57,19 @@ macOS의 Xcode 16 이상에서 [BodyNote.xcodeproj](BodyNote.xcodeproj)를 열�
 | 초안 생성과 세트 입력 | [JournalEntry.swift](BodyNoteCore/Sources/BodyNoteCore/JournalEntry.swift), [JournalEditor.swift](BodyNote/JournalEditor.swift) |
 | 확정·수정, XP, 개인 목표 계산 | [Notebook.swift](BodyNoteCore/Sources/BodyNoteCore/Notebook.swift) |
 | 세트 조건, 성장 비교와 배지 | [Performance.swift](BodyNoteCore/Sources/BodyNoteCore/Performance.swift), [GrowthBoard.swift](BodyNote/GrowthBoard.swift), [브라우저 비교 로직](Preview/performance.js) |
+| 좌우 기록 비교와 원본 일지 연결 | [SideProgress.swift](BodyNoteCore/Sources/BodyNoteCore/SideProgress.swift), [SideProgressView.swift](BodyNote/SideProgressView.swift), [브라우저 좌우 카드](Preview/side-progress.js) |
 | 파일 저장·읽기, 화면 상태 반영 | [NotebookFile.swift](BodyNoteCore/Sources/BodyNoteCore/NotebookFile.swift), [BodyNoteApp.swift](BodyNote/BodyNoteApp.swift) |
 | 운동별 기록과 다음 날 메모 | [JournalView.swift](BodyNote/JournalView.swift) |
 | 선수와 다음 기록의 스킨 | [Athlete.swift](BodyNoteCore/Sources/BodyNoteCore/Athlete.swift), [TodayView.swift](BodyNote/TodayView.swift) |
 | 훈련장 화면과 마일스톤 | [TrainingGround.swift](BodyNote/TrainingGround.swift), [AdventureView.swift](BodyNote/AdventureView.swift) |
 
 ```sh
+node --test
 swift test --package-path BodyNoteCore
 xcodebuild -project BodyNote.xcodeproj -scheme BodyNote -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
 
-첫 명령은 Swift와 Foundation으로 기록·저장 규칙을 검증합니다. 두 번째 명령은 Mac에서 SwiftUI 앱을 빌드합니다. [GitHub Actions](.github/workflows/ios.yml)는 푸시 후 두 명령을 실행합니다.
+저장소 루트에서 `node --test`를 실행하면 Windows에서도 시안의 동작 검색과 좌우 비교를 검증할 수 있습니다. `swift test`는 앱의 기록·저장 규칙을 검증하고 `xcodebuild`는 Mac에서 SwiftUI 앱을 빌드합니다. 푸시할 때 세 항목을 모두 검사합니다. [GitHub Actions](.github/workflows/ios.yml)
 
 ## 아트 리소스
 

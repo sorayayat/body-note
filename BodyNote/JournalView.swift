@@ -142,7 +142,9 @@ struct ExerciseHistory: View {
 
     var body: some View {
         let pin = store.book.pinnedNotes[Exercise.key(for: name)] ?? ""
+        let sideCards = store.book.sideProgress(for: name)
         List {
+            if !sideCards.isEmpty { SideProgressSection(cards: sideCards, showsExerciseName: false) }
             Section("다음에 볼 메모") {
                 if !pin.isEmpty { Label(pin, systemImage: "pin.fill") }
                 Button(pin.isEmpty ? "메모 고정" : "고정 메모 수정") { pinOpen = true }

@@ -126,6 +126,7 @@ private struct ExerciseEditor: View {
     @EnvironmentObject private var store: JournalStore
     @Binding var exercise: Exercise
     let kind: EntryKind
+    @State private var enteringSides = false
 
     private var amountLabel: String {
         switch exercise.unit {
@@ -153,9 +154,13 @@ private struct ExerciseEditor: View {
     }
 
     @ViewBuilder private var setFields: some View {
+        let showSides = enteringSides || kind == .rehab || exercise.sets.contains { $0.side != .unspecified }
         TextField("도구 · 밴드 색 (선택)", text: $exercise.equipment)
         Picker("기록 단위", selection: $exercise.unit) {
             ForEach(ExerciseUnit.allCases, id: \.self) { Text($0.title).tag($0) }
+        }
+        if !showSides {
+            Button { enteringSides = true } label: { Label("좌우 나눠 기록", systemImage: "arrow.left.and.right") }
         }
         Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 8) {
             GridRow {
@@ -184,7 +189,7 @@ private struct ExerciseEditor: View {
                         .buttonStyle(.borderless).accessibilityLabel("\(number)세트 빼기")
                     }
                 }
-                if kind == .rehab || set.side != .unspecified {
+                if showSides {
                     Picker("\(number)세트 방향", selection: $set.side) {
                         ForEach(BodySide.allCases, id: \.self) { Text($0.title).tag($0) }
                     }

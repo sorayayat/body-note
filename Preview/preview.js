@@ -6,8 +6,8 @@ const kinds = { training: "훈련", rehab: "재활", rest: "휴식" };
 const amountLabels = { "회": "횟수 (회)", "초": "시간 (초)", "분": "시간 (분)", "m": "거리 (m)" };
 const sides = ["구분 없음", "왼쪽", "오른쪽", "양쪽"];
 const rowsWithDefaultUnit = new WeakSet();
+const rowsWithSideInput = new WeakSet();
 const uid = () => crypto.randomUUID();
-const clean = (s) => s.trim().replace(/\s+/g, " ").toLowerCase();
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -54,6 +54,9 @@ function sampleBook() {
   ];
   training.exercises[0].note = "마지막 세트가 조금 힘들었다.";
   training.exercises[0].restSeconds = 60;
+  const recentBand = structuredClone(band);
+  recentBand.sets[0].amount = 10;
+  training.exercises.push(recentBand);
   data.pins["케이블 로우"] = "기구 좌석 4칸";
   data.entries = [rehab, training];
   return data;
@@ -200,6 +203,7 @@ function growthBoardView(standalone = false) {
       ${card.previous ? readingLink(card.previous, "이전") : ""}${readingLink(r, "최근")}<p>${esc(growthFeedback(card))}</p>
       ${button("이 조건으로 목표 만들기", "skill-new", "secondary", `data-id="${esc(r.entry.id)}" data-ex="${r.index}"`)}</article>`;
   }
+  html += sideProgressSection();
   if (goals.length) html += "<h3>숙련 배지</h3>";
   for (const goal of goals) {
     const matches = skillMatches(goal), earned = matches.length === requiredSessions;
@@ -253,6 +257,7 @@ function editMovement(ex, index) {
     ${pin ? muted("고정 메모 · " + pin) : ""}${muted("이전 종목 기록 · " + drillSummary(ex.drill))}
     ${field("이번 운동 메모 (선택)", "note", ex.note, ref)}
     ${button("운동 빼기", "ex-drop", "quiet negative", ref)}</div>`;
+  const showSides = draft.kind === "rehab" || rowsWithSideInput.has(ex) || ex.sets.some(set => set.side && set.side !== "구분 없음");
   const sets = ex.sets.map((set, n) => {
     const pos = `${ref} data-set="${n}"`;
     const row = `${n+1}세트`;
@@ -261,13 +266,14 @@ function editMovement(ex, index) {
       <td><input type="number" inputmode="decimal" min="0" step="any" placeholder="선택" aria-label="${row} 무게 (kg)" data-field="kg" ${pos} value="${esc(set.kg)}"></td>
       <td><input type="number" inputmode="numeric" min="1" step="1" aria-label="${row} ${amountLabel}" data-field="amount" ${pos} value="${esc(set.amount)}"></td>
       <td class="set-action">${remove}</td></tr>`
-      + (draft.kind === "rehab" || set.side !== "구분 없음"
+      + (showSides
         ? `<tr><td colspan="4">${choice(row+" 방향", "side", set.side, sides, pos)}</td></tr>` : "");
   }).join("");
   return `<div class="card">${catalogNameField(ex, index)}
     ${pin ? `<p class="pin">고정 메모 · ${esc(pin)}</p>` : ""}
     ${field("도구 · 밴드 색 (선택)", "equipment", ex.equipment, ref)}
     ${choice("단위", "unit", ex.unit, Object.keys(amountLabels), ref)}
+    ${showSides ? "" : button("좌우 나눠 기록", "enable-sides", "quiet", ref)}
     <table class="set-table" aria-label="운동별 세트 입력"><thead><tr>
       <th scope="col">세트</th><th scope="col">무게 (kg)</th><th scope="col">${amountLabel}</th>
       <th scope="col" class="set-action" aria-label="세트 빼기"></th></tr></thead><tbody>${sets}</tbody></table>
@@ -318,7 +324,7 @@ function detailView() {
 function exerciseView() {
   const name = page().name, normalized = clean(name);
   const pin = Object.hasOwn(book.pins, normalized) ? book.pins[normalized] : "";
-  let content = backButton()+heading(name)+"<h3>다음에 볼 메모</h3>"
+  let content = backButton()+heading(name)+sideProgressSection(name)+"<h3>다음에 볼 메모</h3>"
     + (pin ? `<p class="pin">${esc(pin)}</p>` : "") + button(pin ? "고정 메모 수정" : "메모 고정","pin","quiet");
   for (const entry of latest()) {
     entry.exercises.forEach((ex,i) => {
@@ -525,6 +531,11 @@ document.addEventListener("click", (event) => {
     if (value !== "rest" && !draft.exercises.length) draft.exercises.push(movement());
     render(); break;
   case "ex-add": draft.exercises.push(movement()); render(); break;
+  case "enable-sides":
+    rowsWithSideInput.add(draft.exercises[ex]);
+    render();
+    document.querySelector(`[data-field="side"][data-ex="${ex}"]`)?.focus();
+    break;
   case "ex-drop":
     draft.exercises.splice(Number(ex),1);
     if (!draft.exercises.length) draft.exercises.push(movement());

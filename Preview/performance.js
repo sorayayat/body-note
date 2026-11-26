@@ -1,6 +1,7 @@
 "use strict";
 
 const requiredSessions = 3;
+const clean = (s) => s.trim().replace(/\s+/g, " ").toLowerCase();
 
 function wholeNumber(input) {
   const text = String(input ?? "").trim();
