@@ -20,12 +20,12 @@ struct BodyNoteApp: App {
                         Button("다시 열기") { store.reload() }
                     }
                 } else {
-                    TabView(selection: $tab) {
-                        NavigationStack { TodayView() }.tag(HomeTab.today).toolbar(.hidden, for: .tabBar)
-                        NavigationStack { JournalView() }.tag(HomeTab.journal).toolbar(.hidden, for: .tabBar)
-                        NavigationStack { CoachView() }.tag(HomeTab.coach).toolbar(.hidden, for: .tabBar)
-                    }
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        TabView(selection: $tab) {
+                            NavigationStack { TodayView() }.tag(HomeTab.today).toolbar(.hidden, for: .tabBar)
+                            NavigationStack { JournalView() }.tag(HomeTab.journal).toolbar(.hidden, for: .tabBar)
+                            NavigationStack { CoachView() }.tag(HomeTab.coach).toolbar(.hidden, for: .tabBar)
+                        }
                         HStack(spacing: 8) {
                             ForEach(HomeTab.allCases, id: \.self) { item in
                                 Button { tab = item } label: {
@@ -36,6 +36,7 @@ struct BodyNoteApp: App {
                                     .frame(maxWidth: .infinity, minHeight: 47)
                                     .foregroundStyle(tab == item ? TrackColor.green : Color.secondary)
                                     .background(tab == item ? TrackColor.gray : .clear, in: RoundedRectangle(cornerRadius: 14))
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain).accessibilityAddTraits(tab == item ? .isSelected : [])
                             }

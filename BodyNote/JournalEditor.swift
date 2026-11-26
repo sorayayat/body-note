@@ -126,6 +126,7 @@ struct JournalEditor: View {
         }
         .navigationTitle(editing ? "기록 수정" : "오늘의 기록")
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.immediately)
         .toolbar { ToolbarItem(placement: .cancellationAction) {
             Button("닫기") {
                 do { try store.flushInputs(); dismiss() }

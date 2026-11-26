@@ -17,10 +17,6 @@ xcrun swiftc -typecheck -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" -target a
 import FoundationModels
 SWIFT
 
-project_args=(-project BodyNote.xcodeproj -scheme BodyNote)
-xcodebuild "${project_args[@]}" -configuration Release \
-  -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
-
 simulator=$(xcrun simctl list devices available --json | python3 -c '
 import json, re, sys
 phones = []
@@ -35,6 +31,21 @@ if not phones:
     sys.exit("Install an iOS 26 or newer iPhone simulator in Xcode Settings > Components.")
 print(max(phones)[2])
 ')
+
+if [[ ${GITHUB_ACTIONS:-} == "true" ]]; then
+  # Boot on the hosted Mac while Xcode compiles the separate iPhone target.
+  xcrun simctl bootstatus "$simulator" -b >"${RUNNER_TEMP}/WorkoutLog-simulator-boot.log" 2>&1 &
+  boot_job=$!
+fi
+
+project_args=(-project BodyNote.xcodeproj -scheme BodyNote)
+xcodebuild "${project_args[@]}" -configuration Release \
+  -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+
+if [[ -n ${boot_job:-} ]] && ! wait "$boot_job"; then
+  cat "${RUNNER_TEMP}/WorkoutLog-simulator-boot.log" >&2
+  exit 1
+fi
 
 result_path=${WORKOUT_UI_RESULT_PATH:-"$(mktemp -d)/WorkoutLog.xcresult"}
 test_args=(-configuration Debug -destination "platform=iOS Simulator,id=$simulator,arch=$(uname -m)"

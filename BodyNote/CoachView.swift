@@ -126,11 +126,14 @@ struct CoachView: View {
     var body: some View {
         let turns = (store.book.coachTurns ?? []).filter { $0.athlete.animal == athlete.animal }
         let input = store.formField(key, error: $error)
-        ScrollViewReader { proxy in
-            conversation(turns, input: input)
-                .onChange(of: turns.last?.id, initial: true) { _, id in
-                    if let id { proxy.scrollTo(id, anchor: .bottom) }
-                }
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                conversation(turns, input: input)
+                    .onChange(of: turns.last?.id, initial: true) { _, id in
+                        if let id { proxy.scrollTo(id, anchor: .bottom) }
+                    }
+            }
+            composer(input)
         }
         .navigationTitle("코치")
         .toolbar { Button { showingSettings = true } label: { Label("회복 알림 설정", systemImage: "bell") } }
@@ -138,7 +141,6 @@ struct CoachView: View {
             Form { RecoverySettings() }.navigationTitle("회복 알림").navigationBarTitleDisplayMode(.inline)
                 .toolbar { Button("닫기") { showingSettings = false } }
         }.presentationDetents([.medium]) }
-        .safeAreaInset(edge: .bottom) { composer(input) }
         .saveError($error)
     }
 
@@ -175,20 +177,26 @@ struct CoachView: View {
 
     private func composer(_ input: Binding<String>) -> some View {
         HStack {
-                TextField("동료에게 이야기하기", text: input, axis: .vertical)
-                    .lineLimit(1...4).textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("coach.input")
-                Button {
-                    let sent = input.wrappedValue, companion = athlete
-                    Task { @MainActor in
-                        do {
-                            try await store.sendCoach(sent, as: companion)
-                        } catch { self.error = error.localizedDescription }
-                    }
-                } label: {
+            TextField("동료에게 이야기하기", text: input, axis: .vertical)
+                .lineLimit(1...4).textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("coach.input")
+            Button {
+                let sent = input.wrappedValue, companion = athlete
+                Task { @MainActor in
+                    do {
+                        try await store.sendCoach(sent, as: companion)
+                    } catch { self.error = error.localizedDescription }
+                }
+            } label: {
+                Group {
                     if store.sendingCoach { ProgressView() } else { Image(systemName: "arrow.up.circle.fill").font(.title) }
-                }.accessibilityLabel("보내기").disabled(store.sendingCoach || input.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityIdentifier("coach.send")
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("보내기")
+            .disabled(store.sendingCoach || input.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityIdentifier("coach.send")
         }.padding(.horizontal).padding(.vertical, 8).background(.regularMaterial)
     }
 }

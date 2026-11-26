@@ -11,6 +11,21 @@ final class WorkoutJournalUITests: XCTestCase {
         app.launchEnvironment["WORKOUT_LOG_UI_TEST_SESSION"] = UUID().uuidString
         app.launchArguments = ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
         app.launch()
+        addTeardownBlock { [self] in
+            await MainActor.run {
+                guard let run = self.testRun, run.failureCount > 0 || run.unexpectedExceptionCount > 0 else { return }
+                let hierarchy = app.debugDescription
+                print("Workout Log accessibility hierarchy at failure:\n\(hierarchy)")
+                let tree = XCTAttachment(string: hierarchy)
+                tree.name = "Accessibility hierarchy and frames"
+                tree.lifetime = .keepAlways
+                self.add(tree)
+                let screen = XCTAttachment(screenshot: app.screenshot())
+                screen.name = "Screen at failure"
+                screen.lifetime = .keepAlways
+                self.add(screen)
+            }
+        }
         return app
     }
 
@@ -19,16 +34,21 @@ final class WorkoutJournalUITests: XCTestCase {
         let app = launchSession()
         let record = app.buttons["workout.record"]
         XCTAssertTrue(record.waitForExistence(timeout: 10))
+        assertAboveTabBar(record, in: app)
         record.tap()
+        let editor = app.navigationBars["오늘의 기록"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5), "첫 기록 버튼이 편집 화면을 열어야 합니다.")
 
         let name = app.textFields["exercise.name"]
         reveal(name, in: app, swipingUp: true)
         name.tap()
         name.typeText("Beta Row")
+        XCTAssertEqual(name.value as? String, "Beta Row")
         let weight = app.textFields["1세트 무게 (kg)"]
         reveal(weight, in: app, swipingUp: true)
         weight.tap()
         weight.typeText("12.5")
+        XCTAssertEqual(weight.value as? String, "12.5")
 
         let library = app.buttons["exercise.library"]
         reveal(library, in: app, swipingUp: false)
@@ -52,7 +72,8 @@ final class WorkoutJournalUITests: XCTestCase {
         XCTAssertTrue(weekSummary(days: 0, sets: 0, in: app).waitForExistence(timeout: 10))
         XCTAssertTrue(record.waitForExistence(timeout: 5))
         record.tap()
-        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        reveal(name, in: app, swipingUp: true)
         XCTAssertEqual(name.value as? String, "Beta Row")
         reveal(weight, in: app, swipingUp: true)
         XCTAssertEqual(weight.value as? String, "12.5")
@@ -76,8 +97,10 @@ final class WorkoutJournalUITests: XCTestCase {
         coach.tap()
         let input = app.descendants(matching: .any)["coach.input"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
+        assertAboveTabBar(input, in: app)
         input.tap()
         input.typeText("Game plan")
+        XCTAssertEqual(input.value as? String, "Game plan")
         app.terminate()
         app.launch()
         XCTAssertTrue(coach.waitForExistence(timeout: 10))
@@ -97,11 +120,22 @@ final class WorkoutJournalUITests: XCTestCase {
     }
 
     @MainActor
+    private func assertAboveTabBar(_ control: XCUIElement, in app: XCUIApplication,
+                                   file: StaticString = #filePath, line: UInt = #line) {
+        let tabs = app.buttons["코치"]
+        XCTAssertTrue(tabs.exists, file: file, line: line)
+        XCTAssertLessThanOrEqual(control.frame.maxY, tabs.frame.minY + 1,
+            "아래쪽 컨트롤 \(control.frame)이 탭 \(tabs.frame) 위에 있어야 합니다.", file: file, line: line)
+    }
+
+    @MainActor
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, swipingUp: Bool,
                         file: StaticString = #filePath, line: UInt = #line) {
         for _ in 0..<8 {
             if element.exists && element.isHittable { return }
-            if swipingUp { app.swipeUp() } else { app.swipeDown() }
+            let list = app.collectionViews.firstMatch
+            let scroller = list.exists ? list : app
+            if swipingUp { scroller.swipeUp() } else { scroller.swipeDown() }
         }
         XCTAssertTrue(element.exists && element.isHittable, "입력할 컨트롤이 화면에 나타나야 합니다.", file: file, line: line)
     }
