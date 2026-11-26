@@ -19,7 +19,7 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 5) {
                     Image(systemName: "dumbbell.fill")
-                    Text("Body Note").fontWeight(.bold)
+                    Text("운동일지").fontWeight(.bold)
                     Spacer()
                     Button {
                         do {
@@ -40,9 +40,32 @@ struct TodayView: View {
                 .buttonStyle(.plain).font(.title3).foregroundStyle(TrackColor.green)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("오늘").font(.largeTitle.bold()).foregroundStyle(TrackColor.green)
-                    Text("오늘의 훈련을 기록하고\n선수를 성장시켜요!")
-                        .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
                 }
+                WeeklyTrackingView()
+                if !book.drafts.isEmpty {
+                    Text("작성 중").font(.headline)
+                    ForEach(book.drafts) { draft in
+                        Button {
+                            composer = ComposerRequest(entry: draft.entry, resume: draft)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Label(draft.label, systemImage: draft.purpose == .routine ? "bookmark" : "pencil")
+                                    if let preview = draft.preview {
+                                        Text(preview).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    }
+                                }
+                                Spacer()
+                                Text(draft.purpose == .routine ? "루틴" : "일지").font(.caption)
+                                Image(systemName: "chevron.right")
+                            }
+                        }.buttonStyle(.bordered)
+                    }
+                    Button("새 운동 기록 시작") {
+                        composer = ComposerRequest(entry: book.newTrainingDraft(), routineName: book.defaultRoutine?.name)
+                    }
+                }
+                DisclosureGroup("기초 훈련장 · 스킨") {
                 TrainingScene(book: book)
                     .padding(.horizontal, -14)
                 TrainingProgress(book: book)
@@ -61,6 +84,21 @@ struct TodayView: View {
                         }
                     }
                 }
+                    NavigationLink("모험과 마일스톤") { AdventureView() }.padding(.vertical, 6)
+                }.font(.subheadline.weight(.semibold))
+
+                NavigationLink { RoutineListView() } label: {
+                    HStack {
+                        Label("내 루틴", systemImage: "list.bullet.rectangle")
+                        Spacer()
+                        if let routine = book.defaultRoutine {
+                            Text("기본 · \(routine.name)").font(.subheadline).multilineTextAlignment(.trailing)
+                        }
+                        Image(systemName: "chevron.right").font(.caption)
+                    }
+                    .frame(minHeight: 36)
+                }
+                .buttonStyle(.bordered)
 
                 if !book.entries.isEmpty {
                     NavigationLink {
@@ -116,6 +154,7 @@ struct TodayView: View {
                             .padding(3)
                         }
                     case .news:
+                        RecoverySettings()
                         Label("훈련 기록판", systemImage: "checkmark.seal")
                         Text(book.activeDayCount == 0 ? "첫 재활·훈련 일지를 확정하면 첫 도장과 10 XP를 받아요." :
                                 "재활·훈련을 \(book.activeDayCount)일 기록했어요. 현재 \(book.xp) XP예요.")
@@ -136,12 +175,17 @@ struct TodayView: View {
 
     private var recordButton: some View {
         Button {
-            composer = ComposerRequest(entry: store.book.athlete.newEntry())
+            if let saved = store.book.drafts.first(where: { $0.purpose == .journal }) {
+                composer = ComposerRequest(entry: saved.entry, resume: saved)
+            } else {
+                composer = ComposerRequest(entry: store.book.newTrainingDraft(), routineName: store.book.defaultRoutine?.name)
+            }
         } label: {
             HStack {
                 Spacer()
                 Image(systemName: "plus.app.fill")
-                Text(store.book.entries.isEmpty ? "첫 훈련 기록하기" : "오늘 훈련 기록하기")
+                Text(store.book.drafts.contains { $0.purpose == .journal } ? "작성 중인 기록 이어쓰기"
+                     : store.book.entries.isEmpty ? "첫 훈련 기록하기" : "오늘 훈련 기록하기")
                 Spacer()
                 Image(systemName: "chevron.right").font(.subheadline)
             }
@@ -149,6 +193,7 @@ struct TodayView: View {
             .foregroundStyle(.white).background(TrackColor.green, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("workout.record")
     }
 
     private var columns: [GridItem] {

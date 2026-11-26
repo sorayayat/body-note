@@ -126,6 +126,7 @@ public struct JournalEntry: Identifiable, Codable, Equatable {
     public var before = ""
     public var after = ""
     public var effort = ""
+    public var bodySignal: BodySignal?
     public var note = ""
     public var followUp = ""
 

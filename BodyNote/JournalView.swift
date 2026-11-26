@@ -102,8 +102,9 @@ struct EntryDetail: View {
                         NavigationLink("이 운동의 기록 카드") { ExerciseHistory(name: exercise.name) }
                     } header: { Text(exercise.name) }
                 }
-                if ![entry.before, entry.after, entry.effort, entry.note].allSatisfy(\.isEmpty) {
+                if entry.bodySignal != nil || ![entry.before, entry.after, entry.effort, entry.note].allSatisfy(\.isEmpty) {
                     Section("그날의 기록") {
+                        if let signal = entry.bodySignal { LabeledContent("통증·불편 확인", value: signal.title) }
                         if !entry.before.isEmpty { LabeledContent("시작 전", value: entry.before) }
                         if !entry.after.isEmpty { LabeledContent("운동 후", value: entry.after) }
                         if !entry.effort.isEmpty { LabeledContent("난이도", value: entry.effort) }
@@ -117,6 +118,9 @@ struct EntryDetail: View {
                     }
                 }
                 Button("오늘 기록으로 가져오기") { composer = ComposerRequest(entry: entry.draftForToday(using: store.book.athlete)) }
+                if entry.kind != .rest {
+                    NavigationLink("내 루틴으로 저장") { RoutineEditor(.entry(entry)) }
+                }
             }
             .navigationTitle(entry.title).navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -126,8 +130,8 @@ struct EntryDetail: View {
             }
             .sheet(item: $composer) { ComposerSheet(request: $0) }
             .sheet(isPresented: $followUpOpen) {
-                NoteSheet("다음 날 몸 상태", initial: entry.followUp) { value in
-                    try store.update { try $0.setFollowUp(value, for: id) }
+                NoteSheet("다음 날 몸 상태", key: "follow-\(id)", initial: entry.followUp) { book, value in
+                    try book.setFollowUp(value, for: id)
                 }
             }
         }
@@ -164,7 +168,7 @@ struct ExerciseHistory: View {
         }
         .navigationTitle(name)
         .sheet(isPresented: $pinOpen) {
-            NoteSheet("다음에 볼 메모", initial: pin) { value in try store.update { $0.pin(value, for: name) } }
+            NoteSheet("다음에 볼 메모", key: "pin-" + Exercise.key(for: name), initial: pin) { book, value in book.pin(value, for: name) }
         }
         .sheet(item: $composer) { ComposerSheet(request: $0) }
     }

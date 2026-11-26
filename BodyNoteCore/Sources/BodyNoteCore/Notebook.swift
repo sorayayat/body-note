@@ -4,6 +4,7 @@ public enum NotebookError: LocalizedError {
     case missingExercise, invalidSet, missingEntry, tooEarlyForFollowUp
     case invalidGoal, reflectionLocked, unsupportedFile
     case invalidRest, archivedDrill, invalidSkillTarget
+    case missingRoutineName, missingRoutine, restRoutine
 
     public var errorDescription: String? {
         switch self {
@@ -13,10 +14,13 @@ public enum NotebookError: LocalizedError {
         case .tooEarlyForFollowUp: return "다음 날부터 몸 상태를 덧붙일 수 있어요."
         case .invalidGoal: return "목표 운동과 목표 일수를 확인해 주세요."
         case .reflectionLocked: return "재활·훈련을 6일 기록한 뒤 한 줄 회고를 작성해 주세요."
-        case .unsupportedFile: return "이 일지는 더 새로운 버전의 Body Note에서 저장했어요."
+        case .unsupportedFile: return "이 파일을 열려면 운동일지를 최신 버전으로 업데이트해 주세요."
         case .invalidRest: return "세트 간 휴식은 0초 이상의 정수로 입력해 주세요."
         case .archivedDrill: return "이전 종목의 상세 수치는 원래 일지에서 확인할 수 있어요. 새 훈련은 세트로 기록해 주세요."
         case .invalidSkillTarget: return "이 기록의 단위와 범위에 맞는 목표를 입력해 주세요."
+        case .missingRoutineName: return "루틴 이름을 입력해 주세요."
+        case .missingRoutine: return "해당 루틴을 찾을 수 없어요."
+        case .restRoutine: return "훈련 또는 재활 동작을 루틴으로 저장해 주세요."
         }
     }
 }
@@ -30,6 +34,19 @@ public struct PersonalGoal: Codable, Identifiable, Equatable {
     public var title: String { "\(exerciseName) \(targetDays)일 기록" }
 }
 
+public struct TrainingRoutine: Codable, Identifiable, Equatable {
+    public let id: UUID
+    public let name: String
+    public let kind: EntryKind
+    public let exercises: [Exercise]
+
+    public func draft(using athlete: Athlete) -> JournalEntry {
+        var entry = JournalEntry(kind: kind, exercises: exercises.map { $0.copied() })
+        entry.recordedAthlete = athlete
+        return entry
+    }
+}
+
 public struct Notebook: Codable, Equatable {
     public private(set) var entries: [JournalEntry] = []
     public private(set) var pinnedNotes: [String: String] = [:]
@@ -39,7 +56,18 @@ public struct Notebook: Codable, Equatable {
     public private(set) var reflection = ""
     // Optional storage lets journals written before athlete selection open with the default kit.
     private var savedAthlete: Athlete?
+    private var savedRoutines: [TrainingRoutine]?
+    public private(set) var defaultRoutineID: UUID?
     public var lastReadTrainingDays: Int?
+    var savedDrafts: [WorkoutDraft]?
+    public var formInputs: [String: String]?
+    public var recoveryNotifications: Bool?
+    public private(set) var coachTurns: [CoachTurn]?
+
+    public mutating func appendCoachTurn(_ turn: CoachTurn) {
+        if coachTurns == nil { coachTurns = [] }
+        coachTurns?.append(turn)
+    }
 
     public var athlete: Athlete {
         get { savedAthlete ?? Athlete() }
@@ -72,6 +100,65 @@ public struct Notebook: Codable, Equatable {
         return newestFirst.filter { $0.exercises.contains { $0.key == key } }
     }
 
+    public var routines: [TrainingRoutine] { savedRoutines ?? [] }
+
+    public var defaultRoutine: TrainingRoutine? {
+        routines.first { $0.id == defaultRoutineID }
+    }
+
+    public func newTrainingDraft() -> JournalEntry {
+        defaultRoutine?.draft(using: athlete) ?? athlete.newEntry()
+    }
+
+    public mutating func saveRoutine(name: String, kind: EntryKind, exercises: [Exercise],
+                                     replacing id: UUID? = nil) throws {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw NotebookError.missingRoutineName }
+        guard kind != .rest else { throw NotebookError.restRoutine }
+        let template = try validatedExercises(exercises.map { $0.copied() })
+        let routine = TrainingRoutine(id: id ?? UUID(), name: name, kind: kind, exercises: template)
+        var list = routines
+        if let id {
+            guard let index = list.firstIndex(where: { $0.id == id }) else { throw NotebookError.missingRoutine }
+            list[index] = routine
+        } else {
+            if list.isEmpty { defaultRoutineID = routine.id }
+            list.append(routine)
+        }
+        savedRoutines = list
+    }
+
+    public mutating func setDefaultRoutine(_ id: UUID?) throws {
+        if let id, !routines.contains(where: { $0.id == id }) { throw NotebookError.missingRoutine }
+        defaultRoutineID = id
+    }
+
+    public mutating func deleteRoutine(_ id: UUID) {
+        savedRoutines?.removeAll { $0.id == id }
+        savedDrafts?.removeAll { $0.purpose == .routine && $0.routineID == id }
+        if defaultRoutineID == id { defaultRoutineID = nil }
+    }
+
+    private func validatedExercises(_ exercises: [Exercise], original: JournalEntry? = nil) throws -> [Exercise] {
+        guard !exercises.isEmpty else { throw NotebookError.missingExercise }
+        return try exercises.map { source in
+            guard !source.key.isEmpty else { throw NotebookError.missingExercise }
+            var exercise = source
+            exercise.name = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let drill = exercise.drill {
+                guard original?.exercises.contains(where: { $0.id == exercise.id && $0.drill == drill }) == true else {
+                    throw NotebookError.archivedDrill
+                }
+            } else {
+                guard !exercise.sets.isEmpty, exercise.sets.allSatisfy({ set in
+                    set.amount > 0 && (set.weightKg.map { $0.isFinite && $0 >= 0 } ?? true)
+                }) else { throw NotebookError.invalidSet }
+                if let rest = exercise.restSeconds, rest < 0 { throw NotebookError.invalidRest }
+            }
+            return exercise
+        }
+    }
+
     // A draft only enters the notebook here. An existing ID edits its original local day.
     public mutating func confirm(_ draft: JournalEntry, at now: Date = .now,
                                  timeZone: TimeZone = .current) throws {
@@ -88,22 +175,7 @@ public struct Notebook: Codable, Equatable {
             if entry.recordedAthlete == nil {
                 entry.recordedAthlete = original?.recordedAthlete ?? entry.appearance(using: athlete)
             }
-            guard !entry.exercises.isEmpty else { throw NotebookError.missingExercise }
-            for index in entry.exercises.indices {
-                let exercise = entry.exercises[index]
-                guard !exercise.key.isEmpty else { throw NotebookError.missingExercise }
-                if let drill = exercise.drill {
-                    guard original?.exercises.contains(where: { $0.id == exercise.id && $0.drill == drill }) == true else {
-                        throw NotebookError.archivedDrill
-                    }
-                } else {
-                    guard !exercise.sets.isEmpty, exercise.sets.allSatisfy({ set in
-                        set.amount > 0 && (set.weightKg.map { $0.isFinite && $0 >= 0 } ?? true)
-                    }) else { throw NotebookError.invalidSet }
-                    if let rest = exercise.restSeconds, rest < 0 { throw NotebookError.invalidRest }
-                }
-                entry.exercises[index].name = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
+            entry.exercises = try validatedExercises(entry.exercises, original: original)
         }
 
         if let index = existingIndex {
@@ -117,6 +189,7 @@ public struct Notebook: Codable, Equatable {
             entry.day = JournalDay(now, timeZone: timeZone)
             entries.append(entry)
         }
+        removeDraft(entry.id)
     }
 
     public mutating func pin(_ text: String, for name: String) {

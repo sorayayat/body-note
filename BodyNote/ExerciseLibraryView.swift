@@ -45,6 +45,7 @@ struct ExerciseLibraryView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("exercise.item." + item.id)
                     }
                 }
             }
@@ -97,14 +98,17 @@ struct CatalogNameField: View {
     @FocusState private var isTyping: Bool
     @State private var libraryOpen = false
     @State private var maySetUnit: Bool
+    let hasTypedNumbers: Bool
 
-    init(exercise: Binding<Exercise>) {
+    init(exercise: Binding<Exercise>, hasTypedNumbers: Bool) {
         _exercise = exercise
+        self.hasTypedNumbers = hasTypedNumbers
         _maySetUnit = State(initialValue: exercise.wrappedValue.isBlankCatalogRow)
     }
 
     var body: some View {
         TextField("운동 이름", text: $exercise.name).focused($isTyping)
+            .accessibilityIdentifier("exercise.name")
         if isTyping && !exercise.key.isEmpty {
             ForEach(ExerciseCatalog.bundled.search(exercise.name).prefix(4)) { item in
                 Button { select(item) } label: {
@@ -123,10 +127,13 @@ struct CatalogNameField: View {
         } label: {
             Label("부위별 동작 찾기", systemImage: "books.vertical")
         }
+        .accessibilityIdentifier("exercise.library")
         .sheet(isPresented: $libraryOpen) {
             NavigationStack {
                 ExerciseLibraryView(onSelect: select)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { libraryOpen = false } } }
+                    .toolbar { ToolbarItem(placement: .cancellationAction) {
+                        Button("닫기") { libraryOpen = false }.accessibilityIdentifier("exercise.library.close")
+                    } }
             }
         }
         .onChange(of: exercise.sets) { maySetUnit = false }
@@ -134,7 +141,7 @@ struct CatalogNameField: View {
     }
 
     private func select(_ item: CatalogExercise) {
-        exercise.selectFromCatalog(item, useDefaultUnit: maySetUnit)
+        exercise.selectFromCatalog(item, useDefaultUnit: maySetUnit && !hasTypedNumbers)
         maySetUnit = false
         isTyping = false
         libraryOpen = false

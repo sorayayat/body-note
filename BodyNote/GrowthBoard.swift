@@ -76,23 +76,19 @@ private struct SkillTargetSheet: View {
     @EnvironmentObject private var store: JournalStore
     @Environment(\.dismiss) private var dismiss
     let reading: PerformanceReading
-    @State private var input: String
+    private var draftKey: String { "skill-\(reading.id)" }
     @State private var error: String?
-
-    init(reading: PerformanceReading) {
-        self.reading = reading
-        _input = State(initialValue: String(reading.value))
-    }
 
     var body: some View {
         let condition = reading.condition
+        let input = store.formField(draftKey, fallback: String(reading.value), error: $error)
         NavigationStack {
             Form {
                 Section {
                     Text(reading.name).bold()
                     Text(condition.label)
                     LabeledContent("마지막 세트 목표 (회 이상)") {
-                        TextField("횟수", text: $input)
+                        TextField("횟수", text: input)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing).accessibilityLabel("목표값")
                     }
@@ -102,12 +98,12 @@ private struct SkillTargetSheet: View {
             }
             .navigationTitle("숙련 목표 만들기").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("만들기") {
                         do {
-                            guard let value = Int(input) else { throw NotebookError.invalidSkillTarget }
-                            try store.update { try $0.addSkillGoal(from: reading, target: value) }
+                            guard let value = Int(input.wrappedValue) else { throw NotebookError.invalidSkillTarget }
+                            try store.update { try $0.addSkillGoal(from: reading, target: value); $0.formInputs?[draftKey] = nil }
                             dismiss()
                         } catch { self.error = error.localizedDescription }
                     }

@@ -62,32 +62,48 @@ struct EntryRow: View {
 
 
 struct NoteSheet: View {
+    @EnvironmentObject private var store: JournalStore
     @Environment(\.dismiss) private var dismiss
     let title: String
-    let onSave: (String) throws -> Void
-    @State private var text: String
+    let key: String
+    let onSave: (inout Notebook, String) throws -> Void
+    let initial: String
     @State private var error: String?
 
-    init(_ title: String, initial: String, onSave: @escaping (String) throws -> Void) {
+    init(_ title: String, key: String, initial: String, onSave: @escaping (inout Notebook, String) throws -> Void) {
         self.title = title
+        self.key = key
         self.onSave = onSave
-        _text = State(initialValue: initial)
+        self.initial = initial
     }
 
     var body: some View {
+        let input = store.formField(key, fallback: initial, error: $error)
         NavigationStack {
-            Form { TextField(title, text: $text, axis: .vertical).lineLimit(3...10) }
+            Form { TextField(title, text: input, axis: .vertical).lineLimit(3...10) }
                 .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
+                    ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("저장") {
-                            do { try onSave(text); dismiss() }
+                            do {
+                                let value = input.wrappedValue
+                                try store.update { book in try onSave(&book, value); book.formInputs?[key] = nil }
+                                dismiss()
+                            }
                             catch { self.error = error.localizedDescription }
                         }
                     }
                 }
                 .saveError($error)
         }
+    }
+}
+
+extension JournalStore {
+    func formField(_ key: String, fallback: String = "", error message: Binding<String?>) -> Binding<String> {
+        Binding(get: { self.formValue(key, fallback: fallback) }, set: { value in
+            do { try self.remember(value, key: key) } catch { message.wrappedValue = error.localizedDescription }
+        })
     }
 }
