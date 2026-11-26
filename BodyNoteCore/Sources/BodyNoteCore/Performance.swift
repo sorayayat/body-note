@@ -98,6 +98,17 @@ public struct PerformanceReading: Identifiable {
     }
 }
 
+struct SkillTargetDraft: Codable, Equatable {
+    let entryID: UUID
+    let exerciseID: UUID
+    let condition: PerformanceCondition
+    var text: String
+
+    func matches(_ reading: PerformanceReading) -> Bool {
+        entryID == reading.entryID && exerciseID == reading.id && condition == reading.condition
+    }
+}
+
 public struct GrowthCard: Identifiable {
     public var id: PerformanceCondition { current.condition }
     public let current: PerformanceReading
@@ -125,6 +136,14 @@ public struct SkillGoal: Identifiable, Codable, Equatable {
 }
 
 public extension Notebook {
+    func currentSkillReading(for source: PerformanceReading) -> PerformanceReading? {
+        guard let entry = entries.first(where: { $0.id == source.entryID }),
+              let exercise = entry.exercises.first(where: { $0.id == source.id }),
+              let current = PerformanceReading(entry: entry, exercise: exercise),
+              current.condition == source.condition else { return nil }
+        return current
+    }
+
     var earnedSkillGoalIDs: Set<UUID> {
         Set(skillGoals.filter { entriesContributing(to: $0).count == SkillGoal.requiredSessions }.map(\.id))
     }

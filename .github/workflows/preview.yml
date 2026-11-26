@@ -14,7 +14,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Test the offline preview in Edge
-        run: |
-          node --test Preview/tests/*.test.cjs
-          node Scripts/check-preview.mjs
+      - name: Test preview logic
+        if: ${{ !cancelled() }}
+        run: node --test Preview/tests/*.test.cjs
+      - name: Exercise the main journal journey in Edge
+        if: ${{ !cancelled() }}
+        run: node Scripts/check-preview.mjs
+      - name: Check restoration and concurrent edits in Edge
+        if: ${{ !cancelled() }}
+        run: node --test Scripts/preview-regressions.test.mjs

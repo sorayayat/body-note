@@ -146,7 +146,8 @@ function draftShelf() {
 }
 function saveRoute(replace = false) {
   const routes = pages.map(({text,...ctx})=>ctx);
-  history[replace ? "replaceState" : "pushState"]({workoutRoutes:routes, epoch:book.previewEpoch},"");
+  const journal = {filter:journalFilter, date:calendarDate};
+  history[replace ? "replaceState" : "pushState"]({workoutRoutes:routes, epoch:book.previewEpoch, journal},"");
 }
 function restoreRoutes(routes) {
   const valid = [];
@@ -156,7 +157,12 @@ function restoreRoutes(routes) {
       item = book.drafts?.find(d=>d.id===ctx.draftID) ?? liveEditors.get(ctx.draftID);
       if (!item) break;
     }
-    if ((["detail","skill-new"].includes(ctx.view) || ctx.purpose === "follow") && !book.entries.some(e=>e.id===ctx.id)) break;
+    if ((ctx.view === "detail" || ctx.purpose === "follow") && !book.entries.some(e=>e.id===ctx.id)) break;
+    if (ctx.view === "skill-new" && !ctx.condition) {
+      // Old browser history only knew the row index. Its old input needs explicit recovery.
+      const reading = selectedReading(ctx);
+      if (reading) Object.assign(ctx,{condition:conditionKey(reading.condition), name:reading.name});
+    }
     if (ctx.view === "goal-detail" && !book.goals.some(g=>g.id===ctx.id)) break;
     if (ctx.view === "skill-detail" && !book.skillGoals?.some(g=>g.id===ctx.id)) break;
     if (ctx.purpose === "follow") ctx.text = book.entries.find(e=>e.id===ctx.id)?.followUp ?? "";
@@ -169,10 +175,11 @@ function restoreRoutes(routes) {
   if (owner) installEditor(book.drafts?.find(d=>d.id===owner.draftID) ?? liveEditors.get(owner.draftID));
   else draft = null;
 }
+function legacySkillTargetKey(ctx) { return "skill-target-"+ctx.id+"-"+ctx.ex; }
 function formKey(id, ctx = page()) {
   if (id === "coach-input") return "chat-"+athlete().animal;
   if (id === "note-text") return ctx.purpose+"-"+(ctx.id ?? ctx.name ?? "");
-  if (id === "skill-target") return id+"-"+ctx.id+"-"+ctx.ex;
+  if (id === "skill-target") return ctx.condition ? id+":"+JSON.stringify([ctx.id,ctx.condition]) : null;
   return ["goal-name","goal-target"].includes(id) ? id : null;
 }
 function formText(id, fallback = "") { return unsavedForms.get(formKey(id)) ?? book.formInputs?.[formKey(id)] ?? fallback; }

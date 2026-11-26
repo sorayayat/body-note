@@ -4,7 +4,7 @@ public struct NotebookFile {
     public let url: URL
 
     private struct Document: Codable {
-        static let currentVersion = 2
+        static let currentVersion = 3
         let version: Int
         let notebook: Notebook
 

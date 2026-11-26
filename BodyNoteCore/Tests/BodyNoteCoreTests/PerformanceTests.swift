@@ -129,6 +129,120 @@ final class PerformanceTests: XCTestCase {
         XCTAssertTrue(book.earnedSkillGoalIDs.isEmpty)
     }
 
+    func testSkillTargetInputFollowsTheSourceConditionAcrossEditsAndReload() throws {
+        let file = NotebookFile(url: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        defer { try? FileManager.default.removeItem(at: file.url) }
+        var exercise = Exercise(name: "Squat", sets: [TrainingSet(amount: 10), TrainingSet(amount: 8)])
+        exercise.equipment = "Power rack"
+        exercise.restSeconds = 60
+        let entry = JournalEntry(exercises: [exercise])
+        var book = Notebook()
+        try confirm(entry, &book, seconds: 0)
+        let source = try XCTUnwrap(book.growthBoard.first?.current)
+        try book.rememberSkillTarget("0011", for: source)
+
+        let changes: [(inout Exercise) -> Void] = [
+            { $0.name = "Row" }, { $0.equipment = "Cable" }, { $0.restSeconds = 90 },
+            { $0.sets[0].amount = 9 }, { $0.sets[1].weightKg = 20 }, { $0.sets[1].side = .left }
+        ]
+        for change in changes {
+            var edit = entry
+            change(&edit.exercises[0])
+            try confirm(edit, &book, seconds: 1)
+            let updated = try XCTUnwrap(book.growthBoard.first?.current)
+            XCTAssertEqual(updated.id, source.id)
+            XCTAssertNil(book.skillTargetInput(for: updated))
+            XCTAssertNil(book.currentSkillReading(for: source))
+            XCTAssertThrowsError(try book.addSkillGoal(from: source, target: 11))
+            try book.rememberSkillTarget("", for: updated)
+            XCTAssertEqual(book.skillTargetInput(for: updated), "")
+        }
+
+        var edit = entry
+        edit.exercises[0].equipment = "power   RACK"
+        edit.exercises[0].sets[1].amount = 13
+        try confirm(edit, &book, seconds: 2)
+        try file.save(book)
+        book = try file.load()
+        let current = try XCTUnwrap(book.currentSkillReading(for: source))
+        XCTAssertEqual(current.value, 13)
+        XCTAssertEqual(book.skillTargetInput(for: current), "0011")
+        XCTAssertThrowsError(try book.addSkillGoal(from: source, target: 0))
+        XCTAssertEqual(book.skillTargetInput(for: current), "0011")
+        try book.addSkillGoal(from: source, target: 11)
+        XCTAssertEqual(book.skillGoals.map(\.target), [11])
+        XCTAssertNil(book.skillTargetInput(for: current))
+        edit.exercises[0].equipment = "Cable"
+        try confirm(edit, &book, seconds: 3)
+        let cable = try XCTUnwrap(book.growthBoard.first?.current)
+        XCTAssertEqual(book.skillTargetInput(for: cable), "")
+    }
+
+    func testSkillTargetChecksBothRecordAndExerciseEvenWhenConditionsMatch() throws {
+        var book = Notebook()
+        var first = session(.cat, .basic)
+        try confirm(first, &book, seconds: 0)
+        let source = try XCTUnwrap(book.growthBoard.first?.current)
+        try book.rememberSkillTarget("12", for: source)
+        var second = JournalEntry(exercises: first.exercises)
+        try confirm(second, &book, seconds: 1)
+        let otherEntry = try XCTUnwrap(book.growthBoard.first?.current)
+        XCTAssertEqual(otherEntry.id, source.id)
+        XCTAssertNotEqual(otherEntry.entryID, source.entryID)
+        XCTAssertNil(book.skillTargetInput(for: otherEntry))
+        try book.rememberSkillTarget("18", for: otherEntry)
+        second.exercises[0].id = UUID()
+        try confirm(second, &book, seconds: 2)
+        let replacement = try XCTUnwrap(book.growthBoard.first?.current)
+        XCTAssertEqual(replacement.condition, otherEntry.condition)
+        XCTAssertNil(book.skillTargetInput(for: replacement))
+        XCTAssertThrowsError(try book.addSkillGoal(from: otherEntry, target: 18))
+
+        first.kind = .rest
+        try confirm(first, &book, seconds: 3)
+        XCTAssertNil(book.currentSkillReading(for: source))
+        XCTAssertThrowsError(try book.rememberSkillTarget("14", for: source))
+        XCTAssertThrowsError(try book.addSkillGoal(from: source, target: 12))
+        XCTAssertTrue(book.skillGoals.isEmpty)
+        try book.addSkillGoal(from: replacement, target: 8)
+        XCTAssertEqual(book.skillGoals.map(\.target), [8])
+    }
+
+    func testLegacyTargetRemainsUnassignedUntilExplicitlyReusedForACurrentReading() throws {
+        let file = NotebookFile(url: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        defer { try? FileManager.default.removeItem(at: file.url) }
+        var book = Notebook()
+        var entry = session(.rabbit, .basic)
+        try confirm(entry, &book, seconds: 0)
+        let original = try XCTUnwrap(book.growthBoard.first?.current)
+        book.formInputs = ["skill-\(original.id)": "0011", "goal-name": "무릎"]
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(book)) as? [String: Any])
+        XCTAssertNil(payload["skillTargetDrafts"])
+        let oldFile = try JSONSerialization.data(withJSONObject: ["version": 2, "notebook": payload])
+        try oldFile.write(to: file.url)
+        book = try file.load()
+        XCTAssertEqual(try Data(contentsOf: file.url), oldFile)
+        XCTAssertNil(book.skillTargetInput(for: original))
+
+        entry.exercises[0].name = "런지"
+        try confirm(entry, &book, seconds: 1)
+        let current = try XCTUnwrap(book.growthBoard.first?.current)
+        XCTAssertThrowsError(try book.reuseLegacySkillTarget(for: original))
+        XCTAssertEqual(book.legacySkillTarget(for: current), "0011")
+        XCTAssertNil(book.skillTargetInput(for: current))
+        try book.addSkillGoal(from: current, target: current.value)
+        XCTAssertEqual(book.legacySkillTarget(for: current), "0011")
+        try book.reuseLegacySkillTarget(for: current)
+        try file.save(book)
+        let document = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file.url)) as? [String: Any])
+        XCTAssertEqual(document["version"] as? Int, 3)
+        book = try file.load()
+        XCTAssertNil(book.legacySkillTarget(for: current))
+        XCTAssertNil(book.skillTargetInput(for: original))
+        XCTAssertEqual(book.skillTargetInput(for: current), "0011")
+        XCTAssertEqual(book.formInputs?["goal-name"], "무릎")
+    }
+
     func testOldDrillsAndGoalsRoundTripWhileCopiesBecomeOrdinarySets() throws {
         let file = NotebookFile(url: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
         defer { try? FileManager.default.removeItem(at: file.url) }

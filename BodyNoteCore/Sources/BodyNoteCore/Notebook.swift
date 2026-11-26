@@ -3,7 +3,7 @@ import Foundation
 public enum NotebookError: LocalizedError {
     case missingExercise, invalidSet, missingEntry, tooEarlyForFollowUp
     case invalidGoal, reflectionLocked, unsupportedFile
-    case invalidRest, archivedDrill, invalidSkillTarget
+    case invalidRest, archivedDrill, invalidSkillTarget, skillSourceChanged
     case missingRoutineName, missingRoutine, restRoutine
 
     public var errorDescription: String? {
@@ -18,6 +18,7 @@ public enum NotebookError: LocalizedError {
         case .invalidRest: return "세트 간 휴식은 0초 이상의 정수로 입력해 주세요."
         case .archivedDrill: return "이전 종목의 상세 수치는 원래 일지에서 확인할 수 있어요. 새 훈련은 세트로 기록해 주세요."
         case .invalidSkillTarget: return "이 기록의 단위와 범위에 맞는 목표를 입력해 주세요."
+        case .skillSourceChanged: return "원래 운동 기록이 바뀌었어요. 기록판에서 현재 동작과 조건을 다시 선택해 주세요."
         case .missingRoutineName: return "루틴 이름을 입력해 주세요."
         case .missingRoutine: return "해당 루틴을 찾을 수 없어요."
         case .restRoutine: return "훈련 또는 재활 동작을 루틴으로 저장해 주세요."
@@ -52,6 +53,7 @@ public struct Notebook: Codable, Equatable {
     public private(set) var pinnedNotes: [String: String] = [:]
     public private(set) var goals: [PersonalGoal] = []
     private var savedSkillGoals: [SkillGoal]?
+    private var skillTargetDrafts: [SkillTargetDraft]?
     public var skillGoals: [SkillGoal] { (savedSkillGoals ?? []).filter { $0.condition.isSetGoal } }
     public private(set) var reflection = ""
     // Optional storage lets journals written before athlete selection open with the default kit.
@@ -224,8 +226,35 @@ public struct Notebook: Codable, Equatable {
         goals.append(PersonalGoal(id: UUID(), exerciseName: name, targetDays: targetDays, start: start))
     }
 
-    public mutating func addSkillGoal(from reading: PerformanceReading, target: Int, start: JournalDay = JournalDay()) throws {
+    public func skillTargetInput(for reading: PerformanceReading) -> String? {
+        skillTargetDrafts?.first { $0.matches(reading) }?.text
+    }
+
+    public mutating func rememberSkillTarget(_ text: String, for reading: PerformanceReading) throws {
+        guard currentSkillReading(for: reading) != nil else { throw NotebookError.skillSourceChanged }
+        if let index = skillTargetDrafts?.firstIndex(where: { $0.matches(reading) }) {
+            skillTargetDrafts?[index].text = text
+        } else {
+            let draft = SkillTargetDraft(entryID: reading.entryID, exerciseID: reading.id,
+                                        condition: reading.condition, text: text)
+            skillTargetDrafts = (skillTargetDrafts ?? []) + [draft]
+        }
+    }
+
+    public func legacySkillTarget(for reading: PerformanceReading) -> String? {
+        formInputs?["skill-\(reading.id)"]
+    }
+
+    public mutating func reuseLegacySkillTarget(for reading: PerformanceReading) throws {
+        guard let text = legacySkillTarget(for: reading) else { return }
+        try rememberSkillTarget(text, for: reading)
+        formInputs?["skill-\(reading.id)"] = nil
+    }
+
+    public mutating func addSkillGoal(from source: PerformanceReading, target: Int, start: JournalDay = JournalDay()) throws {
+        guard let reading = currentSkillReading(for: source) else { throw NotebookError.skillSourceChanged }
         guard target > 0 else { throw NotebookError.invalidSkillTarget }
+        skillTargetDrafts?.removeAll { $0.matches(reading) }
         if skillGoals.contains(where: { $0.condition == reading.condition && $0.target == target }) { return }
         let goal = SkillGoal(id: UUID(), name: reading.name, condition: reading.condition, target: target, start: start)
         savedSkillGoals = (savedSkillGoals ?? []) + [goal]

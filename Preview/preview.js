@@ -88,6 +88,7 @@ function loadBook() {
 }
 let book = loadBook();
 let pages = [{ view: "today" }];
+const journalFilters = ["전체", "날짜별", "운동별"];
 let journalFilter = "전체";
 let calendarDate = dayKey();
 let draft = null;
@@ -165,6 +166,8 @@ function back(levels = 1) {
 }
 function restoreNavigation(state, selectedTab) {
   const routes = state?.epoch === book.previewEpoch ? state?.workoutRoutes : null;
+  journalFilter = routes && journalFilters.includes(state.journal?.filter) ? state.journal.filter : "전체";
+  calendarDate = routes && /^\d{4}-\d{2}-\d{2}$/.test(state.journal?.date) ? state.journal.date : dayKey();
   restoreRoutes(routes);
   saveRoute(true);
   if (selectedTab) home(selectedTab);
@@ -203,7 +206,6 @@ function segments(items, selected, action) {
     button(label, action, value === selected ? "on" : "", `data-value="${esc(value)}" aria-pressed="${value===selected}"`)).join("")}</div>`;
 }
 function journalView() {
-  const filters = ["전체", "날짜별", "운동별"];
   let content;
   if (journalFilter === "운동별") {
     const names = new Map();
@@ -215,7 +217,7 @@ function journalView() {
       + rows(latest().filter((e) => e.day === calendarDate));
   } else { content = rows(latest()); }
   return heading("일지") + button("동작 도감", "library", "secondary wide")
-    + segments(filters.map((s) => [s,s]), journalFilter, "filter") + content;
+    + segments(journalFilters.map((s) => [s,s]), journalFilter, "filter") + content;
 }
 function contributing(goal) {
   const days = new Set();
@@ -258,7 +260,8 @@ function growthBoardView(standalone = false) {
     html += `<article class="card growth"><div class="growth-look">${recordPortrait(recordAppearance(r.entry))}
       <div><strong>${esc(r.name)}</strong>${muted(conditionLabel(c))}</div></div><b>마지막 세트 · ${r.value}회</b>
       ${card.previous ? readingLink(card.previous, "이전") : ""}${readingLink(r, "최근")}<p>${esc(growthFeedback(card))}</p>
-      ${button("이 조건으로 목표 만들기", "skill-new", "secondary", `data-id="${esc(r.entry.id)}" data-ex="${r.index}"`)}</article>`;
+      ${button("이 조건으로 목표 만들기", "skill-new", "secondary",
+        `data-id="${esc(r.entry.id)}" data-ex="${r.index}" data-name="${esc(r.name)}" data-condition="${esc(conditionKey(c))}"`)}</article>`;
   }
   html += sideProgressSection();
   if (goals.length) html += "<h3>숙련 배지</h3>";
@@ -272,22 +275,57 @@ function growthBoardView(standalone = false) {
   return html;
 }
 
-function selectedReading() {
-  const entry = book.entries.find((e) => e.id === page().id);
-  return performanceReading(entry, entry.exercises[page().ex], page().ex);
+function selectedReading(ctx = page()) {
+  const entry = book.entries.find(e=>e.id===ctx.id);
+  if (!entry || entry.kind === "rest") return null;
+  const indexed = entry.exercises[ctx.ex];
+  const first = indexed && performanceReading(entry,indexed,ctx.ex);
+  if (!ctx.condition || (first && conditionKey(first.condition)===ctx.condition)) return first ?? null;
+  for (const [index, exercise] of entry.exercises.entries()) {
+    const reading = performanceReading(entry,exercise,index);
+    if (reading && conditionKey(reading.condition)===ctx.condition) return reading;
+  }
+  return null;
 }
 
 function skillGoalForm() {
-  const r = selectedReading();
-  return backButton() + heading("숙련 목표 만들기") + "<strong>" + esc(r.name) + "</strong>" + muted(conditionLabel(r.condition))
-    + field("마지막 세트 목표 (회 이상)", "skill-target", formText("skill-target",r.value), 'id="skill-target" inputmode="numeric"')
+  const ctx = page(), reading = selectedReading();
+  const legacy = book.formInputs?.[legacySkillTargetKey(ctx)];
+  let html = backButton() + heading("숙련 목표 만들기");
+  if (reading || ctx.name) html += "<strong>"+esc(reading?.name ?? ctx.name)+"</strong>";
+  if (reading) html += muted(conditionLabel(reading.condition));
+  else {
+    html += muted("원본 운동이나 세트 조건이 바뀌었어요. 기록판에서 목표로 삼을 조건을 다시 선택해 주세요.");
+    const saved = formText("skill-target",null);
+    if (saved !== null) html += field("이 조건에 보관한 목표 입력","saved-target",saved,"readonly");
+  }
+  if (legacy !== undefined) {
+    html += field("이전 버전에 보관한 목표 입력","legacy-target",legacy,"readonly");
+    if (reading) html += muted("어느 운동에 작성한 값인지 확인하고 가져와 주세요.")
+      +button("이전 값을 이 운동에 사용","skill-recover","secondary wide");
+  }
+  if (!reading) return html;
+  return html + field("마지막 세트 목표 (회 이상)", "skill-target", formText("skill-target",reading.value), 'id="skill-target" inputmode="numeric"')
     + muted("오늘부터 같은 조건의 목표를 달성한 훈련을 세어요. 서로 다른 훈련 3회에서 달성하면 배지를 받아요.")
     + button("만들기", "skill-save", "primary wide");
 }
 
+function recoverSkillTarget() {
+  if (!refreshBook()) return;
+  const oldKey = legacySkillTargetKey(page()), key = formKey("skill-target");
+  if (!key || !selectedReading() || !Object.hasOwn(book.formInputs ?? {},oldKey)) { render(); return; }
+  const next = structuredClone(book);
+  next.formInputs[key] = next.formInputs[oldKey];
+  delete next.formInputs[oldKey];
+  if (save(next)) { render(); $("#skill-target").focus(); }
+}
+
 function saveSkillGoal() {
-  const r = selectedReading(), c = r.condition, input = $("#skill-target").value;
-  const target = wholeNumber(input);
+  const target = wholeNumber($("#skill-target")?.value);
+  if (!refreshBook()) return;
+  const r = selectedReading();
+  if (!r || !page().condition) { render(); return; }
+  const c = r.condition;
   if (target === null || target < 1) {
     notify("이 기록의 단위와 범위에 맞는 목표를 입력해 주세요."); return;
   }
@@ -307,12 +345,17 @@ function skillDetail() {
     + (matches.length === requiredSessions ? muted("배지 획득 · " + dayLabel(matches.at(-1).day)) : "")
     + "<h3>목표를 채운 기록</h3>" + rows(matches);
 }
+function movementPin(name) {
+  const key = clean(name);
+  return Object.hasOwn(book.pins,key) && book.pins[key] ? "고정 메모 · "+book.pins[key] : "";
+}
 function editMovement(ex, index) {
   const ref = `data-ex="${index}"`;
-  const pin = Object.hasOwn(book.pins, clean(ex.name)) ? book.pins[clean(ex.name)] : "";
+  const pin = movementPin(ex.name);
+  const pinElement = `<p class="pin" data-movement-pin${pin ? "" : " hidden"}>${esc(pin)}</p>`;
   const amountLabel = amountLabels[ex.unit] ?? "수행량";
   if (ex.drill) return `<div class="card">${field("운동 이름", "name", ex.name, ref)}
-    ${pin ? muted("고정 메모 · " + pin) : ""}${muted("이전 종목 기록 · " + drillSummary(ex.drill))}
+    ${pinElement}${muted("이전 종목 기록 · " + drillSummary(ex.drill))}
     ${field("이번 운동 메모 (선택)", "note", ex.note, ref)}
     ${button("운동 빼기", "ex-drop", "quiet negative", ref)}</div>`;
   const showSides = draft.kind === "rehab" || rowsWithSideInput.has(ex) || ex.sets.some(set => set.side && set.side !== "구분 없음");
@@ -328,7 +371,7 @@ function editMovement(ex, index) {
         ? `<tr><td colspan="4">${choice(row+" 방향", "side", set.side, sides, pos)}</td></tr>` : "");
   }).join("");
   return `<div class="card">${catalogNameField(ex, index)}
-    ${pin ? `<p class="pin">고정 메모 · ${esc(pin)}</p>` : ""}
+    ${pinElement}
     ${field("도구 · 밴드 색 (선택)", "equipment", ex.equipment, ref)}
     ${choice("단위", "unit", ex.unit, Object.keys(amountLabels), ref)}
     ${showSides ? "" : button("좌우 나눠 기록", "enable-sides", "quiet", ref)}
@@ -492,6 +535,7 @@ listenToWrites(document,"input", ({target: t}, value) => {
   if (t.id === "routine-name") { page().routineName = value; persistEditor(); return; }
   if (t.id === "catalog-query") {
     page().query = value;
+    saveRoute(true);
     $("#catalog-results").innerHTML = catalogResults();
     return;
   }
@@ -501,7 +545,12 @@ listenToWrites(document,"input", ({target: t}, value) => {
   const obj = t.dataset.set !== undefined ? ex.sets[t.dataset.set] : ex || draft;
   obj[t.dataset.field] = value;
   if (t.dataset.set !== undefined || t.dataset.field === "unit") rowsWithDefaultUnit.delete(ex);
-  if (t.dataset.field === "name") updateNameSuggestions(t);
+  if (t.dataset.field === "name") {
+    updateNameSuggestions(t);
+    const pin = t.closest(".card").querySelector("[data-movement-pin]");
+    pin.textContent = movementPin(value);
+    pin.hidden = !pin.textContent;
+  }
   if (t.dataset.field === "bodySignal") $("#body-guidance").innerHTML = signalGuidance(value) ? muted(signalGuidance(value)) : "";
   persistEditor();
 });
@@ -509,7 +558,7 @@ document.addEventListener("focusin", ({target: t}) => {
   if (t.dataset?.field === "name") updateNameSuggestions(t);
 });
 listenToWrites(document,"change", ({target: t}) => {
-  if (t.id === "calendar-day") { calendarDate = t.value || dayKey(); render(); }
+  if (t.id === "calendar-day") { calendarDate = t.value || dayKey(); saveRoute(true); render(); }
   if (t.dataset.field === "unit") render();
   if (draft && t.dataset.field === "skin" && Object.hasOwn(sports, t.value)) {
     draft.recordedAthlete = { ...recordAppearance(draft), sport: t.value };
@@ -540,6 +589,8 @@ listenToWrites(document,"click", (event, submission) => {
       clearTimeout(motionTimer);
       fieldMotion = null;
       levelReward = false;
+      journalFilter = "전체";
+      calendarDate = dayKey();
       pages = [{view:"today"}]; saveRoute(true); render(true);
     }
     return;
@@ -623,9 +674,9 @@ listenToWrites(document,"click", (event, submission) => {
     $("#catalog-results").innerHTML = catalogResults();
     saveRoute(true);
     break;
-  case "catalog-reset": page().query = ""; page().region = ""; render(); $("#catalog-query").focus(); break;
+  case "catalog-reset": page().query = ""; page().region = ""; saveRoute(true); render(); $("#catalog-query").focus(); break;
   case "catalog-select": chooseCatalogExercise(id, Number(ex)); break;
-  case "filter": journalFilter = value; render(); break;
+  case "filter": journalFilter = value; saveRoute(true); render(); break;
   case "kind":
     draft.kind = value;
     if (value !== "rest" && !draft.exercises.length) draft.exercises.push(movement());
@@ -670,7 +721,8 @@ listenToWrites(document,"click", (event, submission) => {
     break;
   }
   case "goal-new": go("goal-new"); break;
-  case "skill-new": go("skill-new", { id, ex: Number(ex) }); break;
+  case "skill-new": go("skill-new", {id, ex:Number(ex), name:el.dataset.name, condition:el.dataset.condition}); break;
+  case "skill-recover": recoverSkillTarget(); break;
   case "skill-detail": go("skill-detail", { id }); break;
   case "skill-save": saveSkillGoal(); break;
   case "goal-detail": go("goal-detail", { id }); break;

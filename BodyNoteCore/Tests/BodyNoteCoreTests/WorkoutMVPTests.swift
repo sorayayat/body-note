@@ -300,7 +300,7 @@ final class WorkoutMVPTests: XCTestCase {
         _ = try file.applying(to: loaded) { $0.keepDraft(draft) }
         let data = try Data(contentsOf: url)
         let document = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(document["version"] as? Int, 2)
+        XCTAssertEqual(document["version"] as? Int, 3)
         XCTAssertEqual(try file.load().drafts.first, draft)
         let future = Data(#"{"version":99,"notebook":{"newLayout":[]}}"#.utf8)
         try future.write(to: url)

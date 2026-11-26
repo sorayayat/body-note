@@ -1,102 +1,8 @@
-// Run with Node 22+ and an installed Chrome or Edge. The temporary profile contains test data only.
+// Run with Node 22+ and an installed Chrome or Edge.
 import assert from "node:assert/strict";
-import {spawn} from "node:child_process";
-import {existsSync} from "node:fs";
-import {mkdtemp, readFile, realpath, rm} from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import {setTimeout as pause} from "node:timers/promises";
+import {until, withPreview} from "./preview-browser.mjs";
 
-const binary = [process.env.WORKOUT_TEST_BROWSER, process.env.CHROME_BIN,
-  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-  "C:/Program Files/Google/Chrome/Application/chrome.exe",
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge","/usr/bin/google-chrome","/usr/bin/chromium"]
-  .find(candidate => candidate && existsSync(candidate));
-if (!binary) throw Error("Set WORKOUT_TEST_BROWSER to an installed Chrome or Edge executable.");
-const temporary = await realpath(os.tmpdir());
-const profile = await mkdtemp(path.join(temporary,"workout-preview-"));
-const browser = spawn(binary,["--headless=new","--disable-gpu","--no-first-run","--no-default-browser-check",
-  "--disable-background-networking","--disable-sync","--disable-extensions","--remote-debugging-address=127.0.0.1",
-  "--remote-debugging-port=0","--user-data-dir="+profile,"about:blank"],{stdio:"ignore",windowsHide:true});
-const closed = new Promise(resolve => browser.once("exit",resolve));
-const sockets = [];
-const exceptions = [];
-async function until(label, read) {
-  const end = Date.now()+10000;
-  while (Date.now()<end) { if (await read()) return; await pause(50); }
-  throw Error("Timed out: "+label);
-}
-async function connect(address) {
-  const socket = new WebSocket(address);
-  sockets.push(socket);
-  await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;});
-  const pending = new Map();
-  let seq = 0;
-  socket.onmessage = ({data})=>{
-    const {id,result,error,method,params} = JSON.parse(data);
-    if (method==="Runtime.exceptionThrown") exceptions.push(params.exceptionDetails.exception?.description ?? params.exceptionDetails.text);
-    if (!pending.has(id)) return;
-    const {resolve,reject} = pending.get(id);
-    pending.delete(id);
-    if (error) reject(Error(error.message)); else resolve(result);
-  };
-  socket.onclose = ()=>{for (const task of pending.values()) task.reject(Error("Browser closed")); pending.clear();};
-  const send = (method,params={})=>new Promise((resolve,reject)=>{
-    const id=++seq;
-    pending.set(id,{resolve,reject});
-    socket.send(JSON.stringify({id,method,params}));
-  });
-  const evaluate = async expression=>{
-    const result = await send("Runtime.evaluate",{expression,returnByValue:true,awaitPromise:true});
-    if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
-    return result.result.value;
-  };
-  await send("Runtime.enable");
-  const find = selector=>"document.querySelector("+JSON.stringify(selector)+")";
-  const visible = selector=>evaluate("Boolean("+find(selector)+"?.getClientRects().length)");
-  const click = async selector=>{
-    await until(selector,()=>visible(selector));
-    await evaluate(find(selector)+".click()");
-  };
-  const input = async (selector,value)=>{
-    await until(selector,()=>visible(selector));
-    await evaluate("{const el="+find(selector)+";el.value="+JSON.stringify(value)+";for(const type of ['input','change']) el.dispatchEvent(new Event(type,{bubbles:true}));}");
-  };
-  const tab = async id=>{
-    const title={today:"오늘",journal:"일지",coach:"코치"}[id];
-    await click('[data-tab="'+id+'"]');
-    await until("opened "+title,()=>evaluate(
-      find('[data-tab="'+id+'"][aria-current="page"]')+'!==null && document.querySelector("#screen h2")?.textContent.trim()==='+JSON.stringify(title)));
-  };
-  const waitForDocumentChange = async previous=>{
-    await until("new document and restored screen",async()=>{
-      try {
-        return await evaluate("performance.timeOrigin!=="+previous+" && document.readyState==='complete' && !!document.querySelector('#screen h2')");
-      } catch (error) {
-        if (/execution context|context with specified id/i.test(error.message)) return false;
-        throw error;
-      }
-    });
-  };
-  const reload = async ()=>{
-    const previous=await evaluate("performance.timeOrigin");
-    await send("Page.reload");
-    await waitForDocumentChange(previous);
-  };
-  return {send,evaluate,click,input,tab,reload,waitForDocumentChange,visible,action:name=>click('[data-action="'+name+'"]'),
-    value:selector=>evaluate(find(selector)+"?.value"),
-    stored:()=>evaluate("JSON.parse(localStorage.getItem('body-note-demo.v1'))")};
-}
-
-try {
-  const portFile=path.join(profile,"DevToolsActivePort");
-  await until("test browser startup",()=>existsSync(portFile));
-  const port=Number((await readFile(portFile,"utf8")).split("\n")[0].trim());
-  const endpoint="http://127.0.0.1:"+port;
-  const pages=await (await fetch(endpoint+"/json/list")).json();
-  const app=await connect(pages.find(item=>item.type==="page").webSocketDebuggerUrl);
+await withPreview(async ({app, newTab}) => {
   const {send,evaluate,action,input,click,visible,value,stored,tab,reload}=app;
   const name='[data-field="name"][data-ex="0"]';
   const amount='[data-field="amount"][data-ex="0"][data-set="0"]';
@@ -104,8 +10,6 @@ try {
   const note='[data-field="note"]:not([data-ex])';
   const expectValue=(selector,expected)=>until(
     selector+" shows "+JSON.stringify(expected),async()=>await value(selector)===expected);
-  const url=new URL("../Preview/index.html",import.meta.url).href;
-  await send("Page.navigate",{url});
   await action("new");
   await input(name,"케이블 로우");
   await input(weight,"12.");
@@ -172,8 +76,7 @@ try {
   await expectValue("#coach-input","");
 
   // A second actual browser tab uses the same storage while the first editor stays mounted.
-  const newPage=await (await fetch(endpoint+"/json/new?"+encodeURIComponent(url),{method:"PUT"})).json();
-  const other=await connect(newPage.webSocketDebuggerUrl);
+  const other = await newTab();
   await tab("today");
   await action("new"); await input(name,"첫째 창 운동");
   await other.action("fresh"); await other.input(name,"둘째 창 운동");
@@ -239,15 +142,5 @@ try {
   await expectValue(weight,"17.");
   await send("Emulation.setDeviceMetricsOverride",{width:320,height:720,deviceScaleFactor:1,mobile:false});
   assert.ok(await evaluate("document.documentElement.scrollWidth<=innerWidth && document.querySelector('#screen').scrollWidth<=document.querySelector('#screen').clientWidth"));
-  assert.deepEqual(exceptions,[]);
-  console.log("PASS · history and reload, unfinished decimals, invalid confirm, nested routine, edit identity, weekly tracking, animal chat, simultaneous edits and confirmations, conflict copy, storage failure and retry, last keystroke on reload, goal drafts and narrow layout");
-  await send("Browser.close").catch(()=>{});
-} finally {
-  for (const socket of sockets) socket.close();
-  if (browser.exitCode===null) browser.kill();
-  await Promise.race([closed,pause(1500)]);
-  const cleanup=await realpath(profile);
-  if (path.dirname(cleanup)===temporary && path.basename(cleanup).startsWith("workout-preview-")) {
-    await rm(cleanup,{recursive:true,force:true,maxRetries:5,retryDelay:180});
-  }
-}
+});
+console.log("PASS · history and reload, unfinished decimals, invalid confirm, nested routine, edit identity, weekly tracking, animal chat, simultaneous edits and confirmations, conflict copy, storage failure and retry, last keystroke on reload, goal drafts and narrow layout");

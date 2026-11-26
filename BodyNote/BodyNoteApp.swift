@@ -180,6 +180,14 @@ final class JournalStore: ObservableObject {
         try flushInputs()
     }
 
+    func rememberSkillTarget(_ text: String, for reading: PerformanceReading) throws {
+        if book.skillTargetInput(for: reading) != text {
+            try book.rememberSkillTarget(text, for: reading)
+            pendingInput = true
+        }
+        try flushInputs()
+    }
+
     func sendCoach(_ input: String, as athlete: Athlete) async throws {
         let question = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !sendingCoach, !question.isEmpty else { return }

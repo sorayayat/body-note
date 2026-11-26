@@ -76,40 +76,65 @@ private struct SkillTargetSheet: View {
     @EnvironmentObject private var store: JournalStore
     @Environment(\.dismiss) private var dismiss
     let reading: PerformanceReading
-    private var draftKey: String { "skill-\(reading.id)" }
     @State private var error: String?
 
     var body: some View {
-        let condition = reading.condition
-        let input = store.formField(draftKey, fallback: String(reading.value), error: $error)
+        let current = store.book.currentSkillReading(for: reading)
+        let input = Binding<String>(get: {
+            store.book.skillTargetInput(for: reading) ?? String(current?.value ?? reading.value)
+        }, set: { value in
+            do { try store.rememberSkillTarget(value, for: reading) }
+            catch { self.error = error.localizedDescription }
+        })
         NavigationStack {
             Form {
                 Section {
-                    Text(reading.name).bold()
-                    Text(condition.label)
+                    Text(current?.name ?? reading.name).bold()
+                    Text(reading.condition.label)
                     LabeledContent("마지막 세트 목표 (회 이상)") {
                         TextField("횟수", text: input)
                             .keyboardType(.numberPad)
+                            .disabled(current == nil)
                             .multilineTextAlignment(.trailing).accessibilityLabel("목표값")
                     }
                 } footer: {
                     Text("오늘부터 같은 조건의 목표를 달성한 훈련을 세어요. 서로 다른 훈련 3회에서 달성하면 배지를 받아요.")
                 }
+                if current == nil {
+                    Text(NotebookError.skillSourceChanged.localizedDescription)
+                } else if let legacy = store.book.legacySkillTarget(for: reading) {
+                    Section {
+                        LabeledContent("이전 버전에 입력한 값", value: legacy.isEmpty ? "빈 입력" : legacy)
+                        Button("이 조건에 불러오기") {
+                            do { try store.update { try $0.reuseLegacySkillTarget(for: reading) } }
+                            catch { self.error = error.localizedDescription }
+                        }
+                    } footer: {
+                        Text("이전 입력에는 운동 조건이 저장되지 않았어요. 위 조건에 사용할 때 불러오세요.")
+                    }
+                }
             }
             .navigationTitle("숙련 목표 만들기").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("닫기") {
+                        do { try store.flushInputs(); dismiss() }
+                        catch { self.error = error.localizedDescription }
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("만들기") {
                         do {
                             guard let value = Int(input.wrappedValue) else { throw NotebookError.invalidSkillTarget }
-                            try store.update { try $0.addSkillGoal(from: reading, target: value); $0.formInputs?[draftKey] = nil }
+                            try store.update { try $0.addSkillGoal(from: reading, target: value) }
                             dismiss()
                         } catch { self.error = error.localizedDescription }
                     }
+                    .disabled(current == nil)
                 }
             }
             .saveError($error)
         }
+        .interactiveDismissDisabled(store.inputSaveProblem != nil)
     }
 }

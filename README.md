@@ -35,7 +35,9 @@ Apple Silicon Mac에서 앱 화면을 바로 보려면 GitHub의 **Actions → W
 
 ### 데이터와 향후 연결
 
-기존 v1 일지는 그대로 열리고 다음 저장부터 v2 형식을 사용합니다. 이전 버전의 앱은 v2 파일을 감지하면 쓰기를 중단해 새 필드와 초안을 보호합니다.
+iPhone은 기존 v1·v2 일지를 열 수 있고 다음 저장부터 v3 형식을 사용합니다. v3는 숙련 목표 입력을 원본 기록과 운동 조건에 함께 보관합니다. 이전 앱은 지원하는 버전보다 높은 파일을 열 때 쓰기를 중단합니다.
+
+숙련 목표를 쓰다가 원본 운동이나 세트 조건을 바꾸면 해당 목표의 생성을 멈추고 조건을 다시 선택할 수 있습니다. 마지막 세트 횟수만 달라지면 같은 조건으로 이어 씁니다. 이전 버전에서 쓴 목표값은 원문으로 보관하고, 사용할 운동을 확인한 뒤 직접 불러올 수 있습니다.
 
 Windows에서 두 창에 서로 다른 일지를 열면 각 창의 운동과 세트가 함께 저장됩니다. 같은 초안을 양쪽에서 고치면 **새 초안으로 보관**을 눌러 두 버전을 남길 수 있습니다. **오늘 → 작성 중**에는 첫 세트의 중량·수행량과 메모가 보여서 같은 이름으로 작성한 운동도 구분할 수 있습니다.
 
@@ -100,13 +102,15 @@ iPhone은 앱 전용 파일을 원자적으로 갱신하고 iOS 파일 보호를
 
 ```sh
 node --test Preview/tests/*.test.cjs
+node Scripts/check-preview.mjs
+node --test Scripts/preview-regressions.test.mjs
 swift test --package-path BodyNoteCore
 bash Scripts/test-ios-beta.sh
 ```
 
-저장소 루트에서 첫 명령은 Windows에서도 동작합니다. Node 22 이상과 Chrome 또는 Edge가 설치되어 있으면 `node Scripts/check-preview.mjs`로 임시 프로필에서 실제 브라우저 경로도 검사합니다. 브라우저 위치는 `WORKOUT_TEST_BROWSER`로 지정할 수 있습니다. [브라우저 회귀 테스트](Scripts/check-preview.mjs) · [Windows CI](.github/workflows/preview.yml)
+앞의 세 명령은 Windows에서 실행할 수 있습니다. Node 22 이상과 Edge 또는 Chrome을 사용합니다. 첫 명령은 데이터 로직을, 다음 두 명령은 독립된 임시 브라우저 프로필에서 실제 화면을 검사합니다. 일지 작성부터 다시 열기까지의 흐름과 함께 검색·달력 복원, 운동명에 맞는 고정 메모, 두 창에서 원본과 숙련 목표를 편집하는 경우를 확인합니다. 브라우저 위치는 `WORKOUT_TEST_BROWSER`로 지정할 수 있습니다. [주요 사용 흐름](Scripts/check-preview.mjs) · [독립 회귀 검사](Scripts/preview-regressions.test.mjs) · [Windows CI](.github/workflows/preview.yml)
 
-두 번째 명령은 Swift 코어를 검사합니다. 마지막 명령은 Mac에서 iOS 26 이상 SDK와 Foundation Models를 확인하고 iPhone용 Release 빌드와 시뮬레이터 UI 테스트를 실행합니다. Xcode 설정의 **Components**에 iOS 26 이상 시뮬레이터를 설치해 두세요. UI 테스트는 운동명과 세트 중량 입력 → 동작 도감 왕복 → 앱 재실행 → 이어쓰기와 확정 집계, 코치의 미전송 문장 복원을 실제 앱 화면에서 확인합니다. 테스트마다 시뮬레이터 안의 전용 일지를 사용합니다. [UI 테스트](BodyNoteUITests/WorkoutJournalUITests.swift) · [검증 스크립트](Scripts/test-ios-beta.sh) · [GitHub Actions](.github/workflows/ios.yml)
+Swift 패키지 테스트는 일지·성장·코칭 로직을 검사합니다. 마지막 명령은 Mac에서 iOS 26 이상 SDK와 Foundation Models를 확인하고 iPhone용 Release 빌드와 시뮬레이터 UI 테스트를 실행합니다. Xcode 설정의 **Components**에서 iOS 26 이상 시뮬레이터를 설치할 수 있습니다. UI 테스트는 각각 별도 일지로 기록 입력·도감 왕복·재실행·확정, 기본 루틴 복사, 부위와 별칭으로 검색한 동작 선택, 코치의 미전송 문장 복원을 확인합니다. [UI 테스트](BodyNoteUITests/WorkoutJournalUITests.swift) · [검증 스크립트](Scripts/test-ios-beta.sh) · [GitHub Actions](.github/workflows/ios.yml)
 
 ## 아트 리소스
 
