@@ -1,0 +1,20 @@
+name: Workout Log Windows preview
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test the offline preview in Edge
+        run: |
+          node --test Preview/tests/*.test.cjs
+          node Scripts/check-preview.mjs

@@ -51,7 +51,7 @@ function setKit(animal, sport) {
   next.athlete = { animal, sport };
   if (!save(next)) return false;
   if (!book.entries.some((entry) => entry.kind !== "rest")) showMotion("ready",850);
-  if (["today","profile","adventure"].includes(page().view)) render();
+  if (["today","profile","adventure","coach"].includes(page().view)) render();
   else renderLocker();
   return true;
 }
@@ -100,6 +100,7 @@ function paintIcons() {
     person: "M16.5 7 A4.5 4.5 0 1 1 7.5 7 A4.5 4.5 0 1 1 16.5 7 M3.5 21 Q3.5 14 9.5 14 H14.5 Q20.5 14 20.5 21 Z",
     calendar: "M4 6 H20 V20 H4 Z M8 3 V8 M16 3 V8 M4 10 H20 M8 14 H9 M13 14 H14 M10 17 H11",
     journal: "M5 3 H17 Q20 3 20 6 V21 H7 Q4 21 4 18 V5 Q4 3 5 3 Z M8 8 H16 M8 12 H16 M8 16 H14",
+    coach: "M3 4 H21 V16 H10 L5 20 V16 H3 Z M7 8 H17 M7 12 H14",
     adventure: "M2 20 L9 10 L13 15 L16 11 L22 20 Z M14 11 V3 M14 3 L20 4 L17 7 L14 7",
     info: "M21 12 A9 9 0 1 1 3 12 A9 9 0 1 1 21 12 M12 11 V16 M12 8 V8.3",
     dumbbell: "M2 8 H4 V16 H2 Z M5.5 5.5 H8.5 V18.5 H5.5 Z M10 10.5 H14 V13.5 H10 Z M15.5 5.5 H18.5 V18.5 H15.5 Z M20 8 H22 V16 H20 Z"
@@ -152,20 +153,28 @@ function outfitCard(animal, sport, forAnimal = false) {
 
 function trainingHome() {
   const a = athlete();
+  const routine = findRoutine(book, book.defaultRoutineID);
   const unread = book.lastReadTrainingDays !== stats().days;
-  return `<header class="app-head"><b>${canvasIcon("dumbbell")}Body Note</b><span>
+  return `<header class="app-head"><b>${canvasIcon("dumbbell")}운동일지</b><span>
     <button class="icon-button" data-action="news" aria-label="${unread ? "새 훈련 소식" : "훈련 소식"}">
       ${canvasIcon("bell")}${unread ? '<i class="unread"></i>' : ""}</button>
     <button class="icon-button" data-action="profile" aria-label="선수 선택">${canvasIcon("person")}</button></span></header>
-    <h2 class="today-title">오늘</h2><p class="intro">오늘의 훈련을 기록하고<br>선수를 성장시켜요!</p>
+    <h2 class="today-title">오늘</h2>
+    ${trackingPanel()}${draftShelf()}
+    <details id="training-ground"${page().showGround ? " open" : ""}>
+    <summary><span>기초 훈련장 · 스킨</span>${recordPortrait(a)}</summary>
     ${scene()}${progressPanel()}
     <div class="sport-heading"><h3>다음 기록의 스킨</h3><button class="icon-button" data-action="sport-help" aria-label="스킨 안내">${canvasIcon("info")}</button></div>
     <div class="outfit-strip">${Object.keys(sports).map((s) => outfitCard(a.animal,s)).join("")}</div>
+    ${button("모험과 마일스톤","adventure","secondary wide")}</details>
+    <button class="row routine-home" data-action="routines"><strong>내 루틴</strong>
+      ${routine ? `<span>기본 · ${esc(routine.name)}</span>` : ""}<b aria-hidden="true">›</b></button>
     ${book.entries.length ? button("기초 훈련장 기록판","growth","secondary wide")+
       button("↻ 지난 기록 가져오기","pick","secondary wide")+"<h3>최근 기록</h3>"+rows(latest().slice(0,3)) : ""}`;
 }
 function recordButton() {
-  return `<button class="start" data-action="new"><i aria-hidden="true">＋</i>${book.entries.length ? "오늘 훈련 기록하기" : "첫 훈련 기록하기"}<b aria-hidden="true">›</b></button>`;
+  const unfinished = book.drafts?.some(item=>item.view==="editor");
+  return `<button class="start" data-action="new"><i aria-hidden="true">＋</i>${unfinished ? "작성 중인 기록 이어쓰기" : book.entries.length ? "오늘 훈련 기록하기" : "첫 훈련 기록하기"}<b aria-hidden="true">›</b></button>`;
 }
 function profileView() {
   return backButton()+heading("선수 선택")+muted("함께 훈련할 선수를 선택하세요.")
@@ -174,7 +183,7 @@ function profileView() {
 }
 function newsView() {
   const s = stats();
-  return backButton()+heading("훈련 소식")+'<h3>훈련 기록판</h3>'+muted(s.days ?
+  return backButton()+heading("회복과 훈련 소식")+muted("iPhone에서 다음 날 오전 9시 회복 알림을 켤 수 있어요.")+trackingPanel()+'<h3>훈련 기록판</h3>'+muted(s.days ?
     `재활·훈련을 ${s.days}일 기록했어요. 현재 ${s.xp} XP예요.` : "첫 재활·훈련 일지를 확정하면 첫 도장과 10 XP를 받아요.");
 }
 function renderLocker() {

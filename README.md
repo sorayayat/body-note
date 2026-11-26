@@ -1,13 +1,13 @@
-# Body Note
+# 운동일지
 
-기초 훈련장에서 재활과 훈련을 기록하며 동물 선수를 키우는 한국어 iPhone 앱입니다. 기록은 기기의 앱 전용 저장소에 보관합니다.
+운동과 재활의 세트별 수행량을 기록하고, 날짜별·운동별 변화와 최근 7일의 운동량을 돌아보는 한국어 iPhone 앱입니다. 사용자가 고른 동물은 일지를 바탕으로 활동을 돌아보고 경기 준비를 함께 하는 코치입니다.
 
 ## Windows에서 화면 보기
 
 저장소를 내려받아 [Preview/index.html](Preview/index.html)을 Edge 또는 Chrome에서 엽니다. 서버나 별도 설치 없이 동작하는 브라우저 시안입니다. SwiftUI 앱과 같은 그림을 사용하고, 시안의 데이터는 이 브라우저에 별도로 저장합니다.
 
-1. 빈 일지의 첫 화면에는 러닝복을 입은 고양이와 기초 훈련장이 보입니다. 오른쪽 위 **선수 선택**에서 고양이·강아지·토끼·너구리 중 하나를 고릅니다.
-2. **다음 기록의 스킨**에서 러닝, 필드하키, 웨이트, 기초 재활 유니폼 중 하나를 고릅니다. **첫 훈련 기록하기**에서 훈련·재활·휴식을 선택하고 세트를 입력합니다. 예를 들어 필드하키 스킨을 입은 토끼로 스쿼트를 기록할 수 있습니다.
+1. **오늘**에서 최근 7일을 확인하고 **첫 훈련 기록하기**를 누릅니다. 훈련·재활·휴식 중 하나를 고르고 세트별 무게와 수행량을 입력합니다. **일지**에서 날짜나 운동으로 다시 찾을 수 있습니다.
+2. **선수 선택**에서 고양이·강아지·토끼·너구리를 고릅니다. **기초 훈련장 · 스킨**에서 러닝, 필드하키, 웨이트, 기초 재활 유니폼을 바꿀 수 있습니다. **코치**에서 선택한 동물과 대화합니다.
 3. 예전 기록을 가져오는 흐름은 브라우저 라커룸에서 **예시 일지 불러오기**를 누른 뒤 확인할 수 있습니다. **지난 기록 가져오기 → 케이블 로우**에서 마지막 세트를 고쳐 확정하면 원본과 오늘 기록이 일지에 각각 남습니다.
 
 훈련이나 재활을 확정하면 해당 일지에 선수와 스킨을 함께 저장합니다. **오늘**과 **모험**의 훈련장에는 가장 최근 훈련·재활 일지의 캐릭터가 보입니다. **일지** 목록과 상세 화면에는 각 기록에 저장한 캐릭터가 보입니다. 쉬는 날에는 직전 훈련의 캐릭터가 훈련장에 남습니다.
@@ -16,7 +16,30 @@
 
 ## iPhone 앱 실행
 
-macOS의 Xcode 16 이상에서 [BodyNote.xcodeproj](BodyNote.xcodeproj)를 열고 **BodyNote** 스킴과 iOS 17 이상 iPhone 시뮬레이터를 선택한 뒤 실행합니다. 실제 iPhone에서는 타깃의 **Signing & Capabilities**에서 본인의 개발 팀을 선택합니다. 개인별 서명 정보는 Xcode에서 설정합니다.
+Mac의 Xcode 26 이상에서 **BodyNote** 스킴을 선택합니다. 지원하는 최소 버전은 iOS 17입니다. 실제 iPhone을 기기로 선택하고 앱 타깃의 **Signing & Capabilities → Team**에 본인의 팀을 지정한 뒤 **Run**을 누르면 홈 화면에 설치됩니다. 앱 표시 이름은 운동일지입니다. 기존에 설치한 사용자의 일지를 이어서 읽도록 번들 ID와 저장 경로를 유지합니다. [Xcode 프로젝트](BodyNote.xcodeproj)
+
+### 내부 베타
+
+Apple Silicon Mac에서 앱 화면을 바로 보려면 GitHub의 **Actions → Workout Log iOS**에서 해당 커밋의 성공한 실행을 엽니다. **Artifacts → WorkoutLog-iOS-Simulator-arm64**를 다운로드해 안쪽 ZIP까지 풀고, Xcode에서 iOS 26 이상 iPhone 시뮬레이터를 실행한 뒤 `BodyNote.app`을 시뮬레이터 창에 놓습니다. 이 앱은 그 실행에서 UI 테스트를 통과한 빌드입니다.
+
+1. 아래 검증을 실행하고 시뮬레이터 테스트 결과를 확인합니다. 지원하는 iPhone에서는 Apple Intelligence를 켜고 운동 전 긴장에 대해 질문해 모델 응답을 확인합니다. **코치 → 회복 알림 설정**에서 알림을 허용한 후 불편함을 기록해 다음 날 한 번 도착하는지도 확인합니다.
+2. Apple Developer Program 팀에서 App Store Connect에 동일한 번들 ID로 앱을 등록합니다. Xcode에서 배포 팀과 새 빌드 번호를 확인하고, 실제 iOS 기기 대상에서 **Product → Archive → Distribute App**으로 업로드합니다. [Apple 빌드 업로드 안내](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
+3. 빌드 처리가 끝나면 **App Store Connect → TestFlight**에서 해당 빌드를 내부 그룹에 추가하고 테스터를 지정합니다. CI는 서명 없는 기기 빌드와 시뮬레이터 테스트를 실행하며, 배포는 이 업로드·그룹 배정 단계에서 이루어집니다. [Apple 내부 테스터 안내](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/)
+
+## 기록 추적과 코치
+
+- **최근 7일**은 오늘을 포함한 현지 날짜로 운동한 일수, 훈련·재활 횟수, 세트 수를 집계합니다. 같은 날 두 번 훈련하면 1일·2회로 표시합니다. 날짜를 누르면 계산에 사용한 원래 일지를 볼 수 있습니다. 휴식을 남긴 날도 달력에서 확인할 수 있습니다.
+- **작성 중**에는 입력한 새 일지, 이전 일지의 수정 초안과 루틴이 각각 보관됩니다. 운동 도감을 읽고 돌아오거나 앱을 종료한 뒤에도 이어서 수정할 수 있습니다. 확정해야 주간 합계와 XP에 반영됩니다. 동물별 대화와 보내기 전 문장도 기기에 보관합니다.
+- **몸 상태와 회복**은 사용자가 남긴 통증·불편 항목과 연속 운동일을 바탕으로 원래 일지와 함께 안내를 표시합니다. 통증으로 중단했거나 심해졌다고 입력하면 아픈 동작을 멈추고 필요시 진료를 받도록 안내합니다. 알림을 허용하면 해당 기록 다음 날 현지 오전 9시에 회복 확인을 한 번 예약하고, 잠금 화면에는 일반적인 확인 문구를 표시합니다. [NHS의 통증·부종 악화 시 도움받기 안내](https://www.nhs.uk/conditions/sprains-and-strains/)
+- **동물 코치**는 확정한 수치로 활동 요약을 계산합니다. 지원하는 iOS 26 이상 기기에서 Apple Intelligence 모델이 준비되면 질문의 주제를 가르고 경기 집중·자신감처럼 비임상적인 운동 대화에 짧게 답합니다. 같은 동물의 직전 관련 대화를 이어갈 수 있습니다. 모델 미지원·꺼짐·오류 상황과 브라우저 시안에서는 기기에 포함된 기본 코칭을 사용합니다. 통증과 위기 신호에는 정해진 안내를 사용합니다. [Apple Foundation Models](https://developer.apple.com/documentation/FoundationModels/generating-content-and-performing-tasks-with-foundation-models)
+
+### 데이터와 향후 연결
+
+기존 v1 일지는 그대로 열리고 다음 저장부터 v2 형식을 사용합니다. 이전 버전의 앱은 v2 파일을 감지하면 쓰기를 중단해 새 필드와 초안을 보호합니다.
+
+Windows에서 두 창에 서로 다른 일지를 열면 각 창의 운동과 세트가 함께 저장됩니다. 같은 초안을 양쪽에서 고치면 **새 초안으로 보관**을 눌러 두 버전을 남길 수 있습니다. **오늘 → 작성 중**에는 첫 세트의 중량·수행량과 메모가 보여서 같은 이름으로 작성한 운동도 구분할 수 있습니다.
+
+iPhone은 앱 전용 파일을 원자적으로 갱신하고 iOS 파일 보호를 적용합니다. Windows 시안은 해당 브라우저의 로컬 저장소를 사용하며, 두 저장소는 독립적입니다. 현재 일지·대화 기능의 처리 경로는 기기 안에서 끝납니다. 향후 동기화는 저장소 인터페이스에, 서버 코치는 코칭 제공자 인터페이스에 연결할 수 있습니다. 서버 기능을 추가할 때는 전송할 기록이나 대화 맥락의 범위를 보여 주고 동의를 받은 뒤 사용하도록 설계합니다. [저장소 인터페이스](BodyNoteCore/Sources/BodyNoteCore/NotebookRepository.swift) · [기기 저장](BodyNoteCore/Sources/BodyNoteCore/NotebookFile.swift) · [코칭 인터페이스](BodyNoteCore/Sources/BodyNoteCore/TrainingCoach.swift)
 
 ## 기록과 성장
 
@@ -29,6 +52,14 @@ macOS의 Xcode 16 이상에서 [BodyNote.xcodeproj](BodyNote.xcodeproj)를 열�
 - **선수 선택 → 동작 미리보기**에서 고른 동물과 유니폼으로 호흡, 옆으로 스트레칭, 출발 준비, 달리기, 성장 점프를 반복 재생합니다. 같은 화면에서 다음 동작을 고를 수 있습니다. Windows 라커룸에서도 동작을 고르면 선택한 버튼과 화면에 보이는 훈련장의 선수가 함께 움직입니다. 기기에서 동작 줄이기를 켜면 각 동작의 대표 자세를 표시합니다.
 - 새 훈련 날짜를 확정하면 달리기, 100 XP 경계를 넘으면 성장 점프가 보입니다.
 - **나의 마일스톤**은 시작일부터 지정한 운동을 기록한 날짜를 셉니다. 목표 화면에서 해당 날짜의 일지를 다시 열 수 있습니다.
+
+### 내 루틴
+
+훈련 일지가 0건이어도 **오늘 → 내 루틴 → 루틴 만들기**에서 운동과 세트를 기기에 저장할 수 있습니다. 오늘의 기록을 작성하는 중이라면 **루틴만 저장**을 눌러 이름과 세트를 확인하고 저장하세요. 작성하던 일지로 돌아온 뒤 닫아도 루틴은 보관됩니다. 이미 확정한 일지는 상세 화면의 **내 루틴으로 저장**에서 가져올 수 있습니다.
+
+첫 루틴은 자동으로 기본이 되며, 다음부터 **오늘 훈련 기록하기**를 누르면 운동 순서·도구·단위·세트별 수행량과 중량·좌우·세트 간 휴식이 채워집니다. 훈련 일수와 XP는 일지를 확정할 때 계산합니다.
+
+그날의 스킨은 오늘 선택한 것을 사용하고, 몸 상태와 메모는 매번 새로 입력합니다. 일지를 확정하면 그날의 실제 수행량을 기록합니다. 기본값을 바꾸려면 **내 루틴 → 루틴 편집**에서 세트를 고치거나 다른 루틴의 **기본 루틴으로 지정**을 누릅니다. 하루만 다른 계획을 쓰고 싶으면 **이 루틴으로 기록** 또는 **빈 기록으로 시작**을 누릅니다. **기본 루틴 해제**를 누르면 이후 새 일지를 빈 양식으로 엽니다.
 
 ### 동작 도감
 
@@ -55,6 +86,10 @@ macOS의 Xcode 16 이상에서 [BodyNote.xcodeproj](BodyNote.xcodeproj)를 열�
 | 확인할 동작 | 위치 |
 | --- | --- |
 | 초안 생성과 세트 입력 | [JournalEntry.swift](BodyNoteCore/Sources/BodyNoteCore/JournalEntry.swift), [JournalEditor.swift](BodyNote/JournalEditor.swift) |
+| 미완성 숫자와 루틴 초안 복원 | [WorkoutDraft.swift](BodyNoteCore/Sources/BodyNoteCore/WorkoutDraft.swift), [브라우저 작업 화면](Preview/workspace.js) |
+| 7일 집계와 회복 안내 | [Tracking.swift](BodyNoteCore/Sources/BodyNoteCore/Tracking.swift), [주간 화면](BodyNote/WeeklyTrackingView.swift) |
+| 동물별 대화와 기기 모델·알림 | [TrainingCoach.swift](BodyNoteCore/Sources/BodyNoteCore/TrainingCoach.swift), [CoachView.swift](BodyNote/CoachView.swift) |
+| 내 루틴 저장과 새 일지 기본값 | [Notebook.swift](BodyNoteCore/Sources/BodyNoteCore/Notebook.swift), [RoutineViews.swift](BodyNote/RoutineViews.swift), [브라우저 루틴](Preview/routines.js) |
 | 확정·수정, XP, 개인 목표 계산 | [Notebook.swift](BodyNoteCore/Sources/BodyNoteCore/Notebook.swift) |
 | 세트 조건, 성장 비교와 배지 | [Performance.swift](BodyNoteCore/Sources/BodyNoteCore/Performance.swift), [GrowthBoard.swift](BodyNote/GrowthBoard.swift), [브라우저 비교 로직](Preview/performance.js) |
 | 좌우 기록 비교와 원본 일지 연결 | [SideProgress.swift](BodyNoteCore/Sources/BodyNoteCore/SideProgress.swift), [SideProgressView.swift](BodyNote/SideProgressView.swift), [브라우저 좌우 카드](Preview/side-progress.js) |
@@ -64,16 +99,18 @@ macOS의 Xcode 16 이상에서 [BodyNote.xcodeproj](BodyNote.xcodeproj)를 열�
 | 훈련장 화면과 마일스톤 | [TrainingGround.swift](BodyNote/TrainingGround.swift), [AdventureView.swift](BodyNote/AdventureView.swift) |
 
 ```sh
-node --test
+node --test Preview/tests/*.test.cjs
 swift test --package-path BodyNoteCore
-xcodebuild -project BodyNote.xcodeproj -scheme BodyNote -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+bash Scripts/test-ios-beta.sh
 ```
 
-저장소 루트에서 `node --test`를 실행하면 Windows에서도 시안의 동작 검색과 좌우 비교를 검증할 수 있습니다. `swift test`는 앱의 기록·저장 규칙을 검증하고 `xcodebuild`는 Mac에서 SwiftUI 앱을 빌드합니다. 푸시할 때 세 항목을 모두 검사합니다. [GitHub Actions](.github/workflows/ios.yml)
+저장소 루트에서 첫 명령은 Windows에서도 동작합니다. Node 22 이상과 Chrome 또는 Edge가 설치되어 있으면 `node Scripts/check-preview.mjs`로 임시 프로필에서 실제 브라우저 경로도 검사합니다. 브라우저 위치는 `WORKOUT_TEST_BROWSER`로 지정할 수 있습니다. [브라우저 회귀 테스트](Scripts/check-preview.mjs) · [Windows CI](.github/workflows/preview.yml)
+
+두 번째 명령은 Swift 코어를 검사합니다. 마지막 명령은 Mac에서 iOS 26 이상 SDK와 Foundation Models를 확인하고 iPhone용 Release 빌드와 시뮬레이터 UI 테스트를 실행합니다. Xcode 설정의 **Components**에 iOS 26 이상 시뮬레이터를 설치해 두세요. UI 테스트는 운동명과 세트 중량 입력 → 동작 도감 왕복 → 앱 재실행 → 이어쓰기와 확정 집계, 코치의 미전송 문장 복원을 실제 앱 화면에서 확인합니다. 테스트마다 시뮬레이터 안의 전용 일지를 사용합니다. [UI 테스트](BodyNoteUITests/WorkoutJournalUITests.swift) · [검증 스크립트](Scripts/test-ios-beta.sh) · [GitHub Actions](.github/workflows/ios.yml)
 
 ## 아트 리소스
 
-훈련장 배지는 제공된 디자인 초안에서 추출했습니다. 첫 화면부터 훈련장 배경 위에 선택한 동물·유니폼·동작을 겹쳐 표시합니다. 앱과 Windows 시안이 같은 파일을 사용합니다. [아트 카탈로그](BodyNote/Assets.xcassets)
+훈련장 배지는 제공된 디자인 초안에서 추출했습니다. 훈련장을 열면 배경 위에 동물·유니폼·동작을 겹쳐 표시합니다. 앱과 Windows 시안이 같은 파일을 사용합니다. [아트 카탈로그](BodyNote/Assets.xcassets)
 
 <details>
 <summary>내장 ImageGen으로 제작한 배경과 선수 유니폼 프롬프트</summary>

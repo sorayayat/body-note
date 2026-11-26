@@ -91,7 +91,10 @@ function chooseCatalogExercise(id, index) {
   if (!item || !exercise || exercise.drill) return;
   exercise.name = item.name;
   if (rowsWithDefaultUnit.delete(exercise)) exercise.unit = catalogUnits[item.unit];
-  while (page().view === "library" || page().view === "catalog-info") pages.pop();
+  const owner = pages.findLastIndex(ctx=>ctx.draftID);
+  if (owner < 0 || !persistEditor(pages[owner])) return;
+  const levels = pages.length - 1 - owner;
+  if (levels > 0) { back(levels); return; }
   render();
   document.querySelector(`input[data-field="amount"][data-ex="${index}"]`)?.focus();
 }

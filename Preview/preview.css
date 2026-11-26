@@ -195,6 +195,15 @@ progress::-webkit-progress-value { background: var(--green); border-radius: 8px;
 .controls small { color: #e0dac9; font-size: 11px; }
 .muted,.sub,.summary { color: var(--muted); font-size: 13px; }
 .actions { display: grid; gap: 7px; margin: 13px 0; }
+.routine-home strong { flex: 1; }
+.routine-home span { min-width: 0; overflow-wrap: anywhere; color: var(--muted); text-align: right; }
+.routine-card { overflow-wrap: anywhere; }
+#screen .routine-card h3 { margin: 5px 0; }
+.routine-card .muted { margin: 4px 0 12px; }
+.routine-card small { color: var(--green); font-weight: 650; }
+.routine-actions { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 3px 8px; }
+.routine-actions .secondary { grid-column: 1 / -1; }
+.routine-actions .quiet:last-child { justify-self: end; }
 .primary,.secondary,.quiet { border: 0; border-radius: 9px; min-height: 39px; padding: 8px 12px; font-size: 14px; font-weight: 650; }
 .primary { background: var(--green); color: white; }
 .secondary { background: #e3e7d9; color: var(--green); }
@@ -244,6 +253,35 @@ textarea { min-height: 58px; resize: vertical; }
 .pin { background: #f7edd3; padding: 6px 9px; border-radius: 7px; color: #674e24; font-size: 13px; overflow-wrap: anywhere; }
 .summary { margin: 4px 0; }
 #screen .wide { width: 100%; margin: 7px 0 0; }
+.tracking-panel { padding: 16px; margin: 10px 0 14px; border: 1px solid var(--line); border-radius: 16px; background: #fffaf2; }
+#screen .tracking-panel h3 { margin: 0 0 5px; font-size: 13px; color: var(--muted); }
+.tracking-panel > strong { display: block; color: var(--green); font-size: clamp(17px, 4vw, 21px); font-variant-numeric: tabular-nums; }
+.day-strip { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 3px; margin: 11px -4px 5px; }
+.day-mark { display: grid; justify-items: center; align-content: center; gap: 5px; min-height: 44px; border: 0; border-radius: 8px; background: none; font-size: 12px; }
+.day-mark::before { content: ""; display: grid; place-content: center; width: 17px; height: 17px; box-sizing: border-box; border: 1.5px solid #9eaaa0; border-radius: 100%; }
+.day-mark.trained::before { content: "✓"; background: var(--green); border-color: var(--green); color: white; font-weight: bold; }
+.day-mark.rested::before { content: "☾"; border: 0; color: var(--green); font-size: 20px; }
+.day-mark:hover,.day-mark:focus-visible { background: #e4eddf; }
+.tracking-panel .muted { margin: 6px 0 0; }
+.recovery-cue { margin: 9px 0; padding: 12px 14px; border-left: 3px solid var(--track); background: #fff0dd; border-radius: 6px 12px 12px 6px; }
+.recovery-cue .muted { margin: 5px 0 0; }
+#training-ground { margin-top: 14px; border-block: 1px solid var(--line); }
+#training-ground > summary { list-style: none; display: flex; align-items: center; min-height: 48px; gap: 8px; font-size: 15px; font-weight: 700; cursor: pointer; }
+#training-ground > summary::-webkit-details-marker { display: none; }
+#training-ground > summary::after { content: "⌄"; margin-left: auto; font-weight: 700; }
+#training-ground[open] > summary::after { transform: rotate(180deg); }
+#training-ground > summary .record-portrait { width: 32px; height: 32px; }
+#training-ground[open] { padding-bottom: 12px; }
+.coach-turn { margin: 13px 0; display: grid; gap: 7px; overflow-wrap: anywhere; }
+.draft-row small { white-space: pre-wrap; overflow-wrap: anywhere; }
+.coach-turn > strong { justify-self: end; padding: 9px 13px; border-radius: 13px 13px 3px 13px; background: #dfeadb; font-size: 14px; }
+.coach-turn > div { display: flex; align-items: flex-start; gap: 5px; }
+.coach-turn .record-portrait { flex: 0 0 34px; width: 34px; height: 36px; }
+.coach-turn p { margin: 0; padding: 10px 12px; background: #fffdf7; border: 1px solid var(--line); border-radius: 3px 13px 13px; line-height: 1.6; }
+.coach-composer { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8px; }
+.coach-composer label.field { margin: 0; }
+.coach-composer .primary { min-height: 42px; }
+#coach-input { width: 100%; min-height: 42px; max-height: 18dvh; resize: vertical; }
 @media(max-height:825px) {
   .home-screen .hero { max-height: clamp(150px,calc(100dvh - 575px),245px); }
   #screen .today-title { margin-top: 2px; font-size: 32px; }

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f4d40">
-  <title>Body Note · 기초 훈련장</title>
+  <title>운동일지 · 오늘</title>
   <link rel="icon" href="../BodyNote/Assets.xcassets/AppIcon.appiconset/AppIcon.png">
   <link rel="stylesheet" href="preview.css">
   <script src="training-ground.js" defer></script>
@@ -12,11 +12,15 @@
   <script src="side-progress.js" defer></script>
   <script src="exercise-catalog-data.js" defer></script>
   <script src="exercise-library.js" defer></script>
+  <script src="routines.js" defer></script>
+  <script src="workspace.js" defer></script>
+  <script src="preview-storage.js" defer></script>
+  <script src="tracking-coach.js" defer></script>
   <script src="preview.js" defer></script>
 </head>
 <body>
   <main class="workspace">
-    <section class="phone" aria-label="Body Note iPhone 미리보기">
+    <section class="phone" aria-label="운동일지 iPhone 미리보기">
       <div class="status" aria-hidden="true"><b id="clock"></b><i class="island"></i><span class="signal">▮▮▮ <i></i></span></div>
       <div id="notice" role="status" aria-live="polite" hidden></div>
       <div id="screen" tabindex="-1"></div>
@@ -24,12 +28,12 @@
       <nav id="tabs" aria-label="앱 메뉴">
         <button data-tab="today"><canvas data-icon="calendar" aria-hidden="true"></canvas>오늘</button>
         <button data-tab="journal"><canvas data-icon="journal" aria-hidden="true"></canvas>일지</button>
-        <button data-tab="adventure"><canvas data-icon="adventure" aria-hidden="true"></canvas>모험</button>
+        <button data-tab="coach"><canvas data-icon="coach" aria-hidden="true"></canvas>코치</button>
       </nav>
       <div class="home-line" aria-hidden="true"></div>
     </section>
     <aside class="controls" aria-label="브라우저 미리보기 설정">
-      <h1>Body Note <span>선수 라커룸</span></h1>
+      <h1>운동일지 <span>선수 라커룸</span></h1>
       <section><h2>기본 캐릭터</h2><div id="species-list" class="species-list"></div></section>
       <section><h2>다음 기록의 스킨</h2><div id="kit-matrix" class="kit-matrix"></div></section>
       <section><h2>동작 미리보기</h2><div id="motion-list" class="motion-list"></div></section>
