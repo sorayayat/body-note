@@ -63,6 +63,20 @@ test("offline coach uses real totals, continues a sports mindset exchange and pr
   assert.equal(app.coachReply("공황 증상이 자주 와",week,"confidence").topic,"support");
 });
 
+test("Korean workout-record questions return real totals while motivation and distress keep their own intent",()=>{
+  const week = app.trackingWeek([entry(-8),entry(0,3),entry(0,2)],today);
+  for (const question of ["최근 운동 기록 알려줘","최근운동기록알려줘","최근 훈련 일지 보여줘","운동 횟수가 궁금해"]) {
+    const reply = app.coachReply(question,week,"confidence");
+    assert.equal(reply.topic,"review");
+    assert.match(reply.answer,/1일에 걸쳐 2회 운동했고 5세트/u);
+  }
+  for (const question of ["동기가 안 생겨","동기 부여가 필요해","운동 기록을 보니 속상해","운동 기록을 보니 속상해. 자신감 회복하고 싶어"]) {
+    assert.equal(app.coachReply(question,week,"review").topic,"confidence");
+  }
+  assert.equal(app.coachReply("운동 기록을 보니 속상하고 무릎이 아파",week).topic,"discomfort");
+  assert.equal(app.coachReply("운동 기록을 보니 무릎도 아프고 죽고 싶어",week).topic,"safety");
+});
+
 test("a streak longer than the visible chart retains its actual length",()=>{
   const items = Array.from({length:10},(_,i)=>entry(i-10));
   assert.match(app.trackingWeek(items,today).cues[0].title,/10일/u);

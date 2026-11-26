@@ -44,11 +44,22 @@ public struct CoachTurn: Identifiable, Codable, Equatable {
 }
 
 public enum TrainingCoach {
+    private static func requestsLog(_ text: String) -> Bool {
+        let lookup = #"(기록|일지|통계|운동량|세트수|횟수|일수)([은는을를이가]|좀|한번|다시|간단히|짧게)*(알려|보여|요약|정리|조회|확인|궁금|볼래|보고싶)"#
+        return text.range(of: lookup, options: .regularExpression) != nil
+            || ["운동기록", "운동일지", "운동량", "운동횟수"].contains(where: { text.hasSuffix($0) })
+    }
+
     public static func reply(to question: String, athlete: Athlete, week: TrackingWeek,
                              previous: CoachTopic?, provider: (any CoachTopicChoosing)? = nil,
                              previousTurn: CoachTurn? = nil) async -> CoachTurn {
         let text = question.lowercased().filter { !$0.isWhitespace }
         func mentions(_ words: [String]) -> Bool { words.contains { text.contains($0) } }
+        // Removing whitespace joins "운동 기록" into "...동기...". Match the motivation noun as a word.
+        let motivation = question.split(whereSeparator: { !$0.isLetter }).contains { $0.hasPrefix("동기") }
+            || mentions(["동기부여", "동기가", "동기를", "동기는"])
+        let confidence = motivation || mentions(["자신", "실수", "속상", "좌절", "의욕", "부담", "못했", "비교"])
+        let focus = mentions(["긴장", "떨", "집중", "시합", "불안", "경기", "focus"])
         let topic: CoachTopic
         var usedModel = false
         if mentions(["자해", "자살", "죽고싶", "죽을래", "목숨을끊", "killmyself", "suicid", "wanttodie"]) {
@@ -57,16 +68,17 @@ public enum TrainingCoach {
             topic = .support
         } else if mentions(["통증", "아파", "아프", "다쳤", "부상", "붓", "부었", "진단", "골절", "치료", "처방", "진통제", "pain", "injur", "medication"]) {
             topic = .discomfort
-        } else if mentions(["얼마나운동", "몇세트", "몇회", "며칠운동", "운동량", "기록요약", "기록보여", "운동을돌아"]) {
+        } else if requestsLog(text) || mentions(["얼마나운동", "몇세트", "몇회", "며칠운동", "운동을돌아"]) {
             topic = .review
-        } else if mentions(["휴식", "쉬어", "쉴까", "회복", "피곤", "rest"]) {
+        } else if mentions(["휴식", "쉬어", "쉴까", "피곤", "rest"]) || (mentions(["회복"]) && !confidence) {
             topic = .recovery
+        } else if confidence && !focus {
+            topic = .confidence
         } else if let selected = await provider?.topic(for: question, previous: previous) {
             topic = selected
             usedModel = true
-        } else if mentions(["휴식", "쉬", "회복", "피곤", "rest", "지쳤"]) { topic = .recovery }
-        else if mentions(["긴장", "떨", "집중", "시합", "불안", "경기", "focus"]) { topic = .focus }
-        else if mentions(["자신", "실수", "속상", "좌절", "의욕", "부담", "못했", "비교", "동기"]) { topic = .confidence }
+        } else if mentions(["쉬", "지쳤"]) { topic = .recovery }
+        else if focus { topic = .focus }
         else if mentions(["기록", "요약", "세트", "운동량", "지난주", "이번주", "얼마", "운동을돌아"]) { topic = .review }
         else if previous == .focus || previous == .confidence { topic = previous ?? .conversation }
         else { topic = .conversation }

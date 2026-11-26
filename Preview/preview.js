@@ -92,6 +92,7 @@ let journalFilter = "전체";
 let calendarDate = dayKey();
 let draft = null;
 let noticeTimer;
+let pendingBack = null;
 
 function refreshBook() {
   try {
@@ -155,15 +156,19 @@ function home(tab, replace = false) {
   draft = null; pages = [{ view: tab }]; saveRoute(replace); render(true);
 }
 function back(levels = 1) {
-  if (!flushWorkspace()) return;
+  if (pendingBack || !flushWorkspace()) return;
   const distance = Math.min(levels,pages.length - 1);
-  if (distance > 0) history.go(-distance);
+  if (distance > 0) {
+    pendingBack = { tab:null };
+    history.go(-distance);
+  }
 }
-function restoreNavigation(state) {
+function restoreNavigation(state, selectedTab) {
   const routes = state?.epoch === book.previewEpoch ? state?.workoutRoutes : null;
   restoreRoutes(routes);
   saveRoute(true);
-  render(true);
+  if (selectedTab) home(selectedTab);
+  else render(true);
 }
 function latest() { return [...book.entries].reverse().sort((a, b) => b.time - a.time); }
 function title(entry) {
@@ -516,7 +521,12 @@ listenToWrites(document,"change", ({target: t}) => {
 listenToWrites(document,"click", (event, submission) => {
   const el = event.target.closest("button");
   if (!el || !el.isConnected) return;
-  if (el.dataset.tab) { home(el.dataset.tab); return; }
+  if (el.dataset.tab) {
+    // A pending history traversal must finish before a tab can push its new route.
+    if (pendingBack) pendingBack.tab = el.dataset.tab;
+    else home(el.dataset.tab);
+    return;
+  }
   if (el.dataset.reset) {
     if (!window.confirm("이 브라우저의 시안 기록을 선택한 데이터로 바꿀까요?")) return;
     const next = el.dataset.reset === "sample" ? sampleBook() : emptyBook();
@@ -686,9 +696,11 @@ document.addEventListener("toggle",({target})=>{
 },true);
 window.addEventListener("popstate",event=>{
   for (const complete of [...queuedEvents]) complete();
+  const selectedTab = pendingBack?.tab;
+  pendingBack = null;
   if (!flushWorkspace()) { saveRoute(); return; }
   refreshBook();
-  restoreNavigation(event.state);
+  restoreNavigation(event.state,selectedTab);
 });
 window.addEventListener("pagehide",()=>{
   const base = settlingWrite?.start ?? book;

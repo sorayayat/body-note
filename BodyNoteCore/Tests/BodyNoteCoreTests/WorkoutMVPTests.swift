@@ -168,6 +168,41 @@ final class WorkoutMVPTests: XCTestCase {
         XCTAssertEqual(book.formInputs?["chat-raccoon"], "아직 안 보낸 말")
     }
 
+    func testRequestsForWorkoutLogsUseConfirmedTotalsEvenWithAMisclassifiedTopic() async throws {
+        struct AlwaysConfidence: CoachTopicChoosing {
+            func topic(for question: String, previous: CoachTopic?) async -> CoachTopic? { .confidence }
+        }
+        var book = Notebook()
+        try book.confirm(workout(sets: 3), at: date(0), timeZone: zone)
+        book.keepDraft(WorkoutDraft(workout(sets: 7)))
+        let week = book.tracking(at: date(0), zone: zone)
+        for provider in [nil, AlwaysConfidence()] as [(any CoachTopicChoosing)?] {
+            for message in ["최근 운동 기록 알려줘", "운동기록을 좀 보여줘", "이번 주 운동 횟수가 궁금해"] {
+                let turn = await TrainingCoach.reply(to: message, athlete: book.athlete, week: week,
+                                                     previous: .confidence, provider: provider)
+                XCTAssertEqual(turn.topic, .review, message)
+                XCTAssertTrue(turn.answer.contains("1회 운동했고 3세트"), message)
+                XCTAssertFalse(turn.usedModel, message)
+            }
+        }
+    }
+
+    func testEmotionsAboutTheLogAndSafetySignalsKeepTheirOwnTopics() async {
+        struct AlwaysReview: CoachTopicChoosing {
+            func topic(for question: String, previous: CoachTopic?) async -> CoachTopic? { .review }
+        }
+        let messages: [(String, CoachTopic)] = [
+            ("동기가 안 생겨", .confidence), ("운동 기록을 보니 속상해", .confidence),
+            ("운동 기록을 보니 속상해. 자신감 회복할 방법을 알려줘", .confidence),
+            ("통증이 있는데 최근 운동 기록 알려줘", .discomfort), ("죽고 싶어. 운동 기록 알려줘", .safety)
+        ]
+        for (message, expected) in messages {
+            let turn = await TrainingCoach.reply(to: message, athlete: Athlete(), week: Notebook().tracking(),
+                                                 previous: .review, provider: AlwaysReview())
+            XCTAssertEqual(turn.topic, expected, message)
+        }
+    }
+
     func testSafetyRoutingCannotBeOverriddenByTopicProvider() async {
         struct AlwaysFocus: CoachTopicChoosing {
             func topic(for question: String, previous: CoachTopic?) async -> CoachTopic? { .focus }

@@ -143,7 +143,7 @@ try {
   await action("coach-send");
   await until("first coaching reply and cleared composer",async()=>
     (await stored()).coachTurns?.length===1 && await value("#coach-input")==="");
-  await input("#coach-input","최근 운동을 돌아볼래"); await action("coach-send");
+  await input("#coach-input","최근 운동 기록 알려줘"); await action("coach-send");
   await until("second coaching reply and cleared composer",async()=>
     (await stored()).coachTurns?.length===2 && await value("#coach-input")==="");
   book=await stored();

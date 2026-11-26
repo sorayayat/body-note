@@ -57,14 +57,20 @@ function trackingPanel() {
 
 function coachReply(question, week, previous) {
   const text = question.toLowerCase().replace(/\s+/gu,"");
+  // Removing spaces joins 운동 and 기록. Match 동기 as a word or a motivation expression.
+  const mentionsMotivation = /(?:^|[\s\p{P}])동기(?:$|[\s\p{P}])/u.test(question) || /동기(?:부여|가|를|는|도|부족|없)/u.test(text);
+  const confidence = mentionsMotivation || /자신|실수|속상|좌절|의욕|부담|못했|비교/u.test(text);
+  const logRequest = /(?:기록|일지|통계|운동량|세트수|횟수|일수)(?:[은는을를이가]|좀|한번|다시|간단히|짧게)*(?:알려|보여|요약|정리|조회|확인|궁금|볼래|보고싶)/u.test(text)
+    || /(?:운동기록|운동일지|운동량|운동횟수)$/u.test(text);
   let topic = "conversation";
   if (/자해|자살|죽고싶|목숨을끊|killmyself|suicide/u.test(text)) topic = "safety";
   else if (/통증|아파|아프|다쳤|부상|붓|부었|골절|pain|injur/u.test(text)) topic = "discomfort";
   else if (/우울증|공황|정신과|정신건강|약물|약복용|트라우마|불안장애|우울해|depress|panic/u.test(text)) topic = "support";
   else if (/진단|치료/u.test(text)) topic = "discomfort";
-  else if (/휴식|쉬|회복|피곤|rest|지쳤/u.test(text)) topic = "recovery";
+  else if (logRequest || /얼마나운동|몇세트|몇회|며칠운동|운동을돌아/u.test(text)) topic = "review";
+  else if (/휴식|쉬|피곤|rest|지쳤/u.test(text) || (!confidence && text.includes("회복"))) topic = "recovery";
   else if (/긴장|떨|집중|시합|불안|경기|focus/u.test(text)) topic = "focus";
-  else if (/자신|실수|속상|좌절|의욕|부담|못했|비교|동기/u.test(text)) topic = "confidence";
+  else if (confidence) topic = "confidence";
   else if (/기록|요약|세트|운동량|지난주|이번주|얼마|운동을돌아/u.test(text)) topic = "review";
   else if (["focus","confidence"].includes(previous)) topic = previous;
   const replies = {
