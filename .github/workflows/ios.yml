@@ -17,6 +17,15 @@ jobs:
         run: bash Scripts/test-ios-beta.sh
         env:
           WORKOUT_UI_RESULT_PATH: ${{ runner.temp }}/WorkoutLog.xcresult
+          WORKOUT_SIMULATOR_ZIP_PATH: ${{ runner.temp }}/WorkoutLog-iOS-Simulator-arm64.zip
+      - name: Publish the tested Apple Silicon simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: WorkoutLog-iOS-Simulator-arm64
+          path: ${{ runner.temp }}/WorkoutLog-iOS-Simulator-arm64.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Retain failed simulator results
         if: failure()
         uses: actions/upload-artifact@v4

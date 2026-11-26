@@ -37,6 +37,22 @@ print(max(phones)[2])
 ')
 
 result_path=${WORKOUT_UI_RESULT_PATH:-"$(mktemp -d)/WorkoutLog.xcresult"}
-xcodebuild "${project_args[@]}" -configuration Debug \
-  -destination "platform=iOS Simulator,id=$simulator" -parallel-testing-enabled NO \
-  -resultBundlePath "$result_path" test
+test_args=(-configuration Debug -destination "platform=iOS Simulator,id=$simulator,arch=$(uname -m)"
+  -parallel-testing-enabled NO -resultBundlePath "$result_path")
+archive_path=${WORKOUT_SIMULATOR_ZIP_PATH:-}
+if [[ -n "$archive_path" ]]; then
+  simulator_build=$(mktemp -d)
+  test_args+=(-derivedDataPath "$simulator_build")
+fi
+xcodebuild "${project_args[@]}" "${test_args[@]}" test
+
+if [[ -n "$archive_path" ]]; then
+  app="$simulator_build/Build/Products/Debug-iphonesimulator/BodyNote.app"
+  platform=$(plutil -extract CFBundleSupportedPlatforms.0 raw -o - "$app/Info.plist")
+  if [[ "$platform" != iPhoneSimulator ]]; then
+    echo "Expected the tested iPhone Simulator product, found $platform." >&2
+    exit 1
+  fi
+  xcrun lipo "$app/BodyNote" -verify_arch arm64
+  ditto -c -k --keepParent "$app" "$archive_path"
+fi
