@@ -131,12 +131,33 @@ final class WorkoutJournalUITests: XCTestCase {
     @MainActor
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, swipingUp: Bool,
                         file: StaticString = #filePath, line: UInt = #line) {
-        for _ in 0..<8 {
-            if element.exists && element.isHittable { return }
-            let list = app.collectionViews.firstMatch
-            let scroller = list.exists ? list : app
-            if swipingUp { scroller.swipeUp() } else { scroller.swipeDown() }
+        let screen = app.frame
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let keyboard = app.keyboards.firstMatch
+        for _ in 0..<14 {
+            let navBottom = app.navigationBars.allElementsBoundByIndex.map { $0.frame.maxY }.max() ?? screen.minY
+            let top = max(screen.minY + 48, navBottom) + 10
+            let keyboardFrame = keyboard.exists ? keyboard.frame : .zero
+            let keyboardTop = keyboardFrame.isEmpty ? screen.maxY : keyboardFrame.minY
+            let bottom = min(screen.maxY - 42, keyboardTop) - 10
+            guard bottom - top > 60 else {
+                XCTFail("스크롤할 화면이 가려져 있어요.", file: file, line: line)
+                return
+            }
+            let center = (top + bottom) / 2
+            let maximumDrag = min((bottom - top) * 0.45, 230)
+            var distance = swipingUp ? maximumDrag : -maximumDrag
+            if element.exists, !element.frame.isEmpty {
+                let target = element.frame.midY
+                if (top...bottom).contains(target) && element.isHittable { return }
+                let displacement = target - center
+                distance = (displacement >= 0 ? 1 : -1) * min(max(abs(displacement), 75), maximumDrag)
+            }
+            let x = screen.width * 0.14
+            let start = origin.withOffset(CGVector(dx: x, dy: center + distance / 2 - screen.minY))
+            let end = origin.withOffset(CGVector(dx: x, dy: center - distance / 2 - screen.minY))
+            start.press(forDuration: 0.04, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
         }
-        XCTAssertTrue(element.exists && element.isHittable, "입력할 컨트롤이 화면에 나타나야 합니다.", file: file, line: line)
+        XCTFail("스크롤한 뒤에도 \(element) 컨트롤을 누를 수 없어요.", file: file, line: line)
     }
 }
