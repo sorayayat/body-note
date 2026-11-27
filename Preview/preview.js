@@ -161,7 +161,7 @@ function restoreTrainingPosition(position) {
   (findTrainingControl(position.control) ?? $("#screen")).focus({preventScroll:true});
 }
 function go(view, options = {}, trigger) {
-  if (!flushWorkspace()) return;
+  if (!canLeaveJournal() || !flushWorkspace()) return;
   if (["library","routine-editor","profile"].includes(view) && !persistEditor(page(),true)) return;
   if (trigger) page().returnPosition = trainingControlPosition(trigger);
   else delete page().returnPosition;
@@ -169,7 +169,7 @@ function go(view, options = {}, trigger) {
   pages.push({ view, ...options }); saveRoute(); render(true);
 }
 function home(tab, replace = false) {
-  if (!flushWorkspace()) return;
+  if (!canLeaveJournal() || !flushWorkspace()) return;
   refreshBook();
   if (page().returnPosition) { delete page().returnPosition; saveRoute(true); }
   window.scrollTo(0,0);
@@ -177,7 +177,7 @@ function home(tab, replace = false) {
   draft = null; pages = [{ view: tab }]; saveRoute(replace); render(true);
 }
 function back(levels = 1) {
-  if (pendingBack || !flushWorkspace()) return;
+  if (pendingBack || !canLeaveJournal() || !flushWorkspace()) return;
   const distance = Math.min(levels,pages.length - 1);
   if (distance > 0) {
     pendingBack = { tab:null };
@@ -430,6 +430,7 @@ function editorView() {
     + (draft.kind === "rest" ? "" : field("운동 후 느낌 (선택)", "after", draft.after)
        + choice("체감 난이도", "effort", draft.effort, ["", "가벼움", "보통", "힘듦"]))
     + field("일지 메모 (선택)", "note", draft.note)
+    + attachmentSection(draft, true)
     + button(editing ? "수정 내용 확정" : "오늘 기록으로 확정", "confirm", "primary wide") + discardButton();
 }
 function summaries(ex) {
@@ -450,6 +451,7 @@ function detailView() {
       ${button("이 운동의 기록 카드", "exercise", "quiet", `data-name="${esc(ex.name)}"`)}</div>`).join("")
     + [["통증·불편 확인",bodySignals[e.bodySignal]],["시작 전",e.before],["운동 후",e.after],["체감 난이도",e.effort],["메모",e.note]].filter(([,v]) => v)
       .map(([k,v]) => muted(`${k} · ${v}`)).join("")
+    + attachmentSection(e, false)
     + (e.day < dayKey() ? "<h3>다음 날 몸 상태</h3>" + (e.followUp ? muted(e.followUp) : "") +
       button(e.followUp ? "다음 날 메모 수정" : "한 줄 덧붙이기", "follow", "quiet", `data-id="${e.id}"`) : "")
     + `<div class="actions">${button("오늘 기록으로 가져오기", "copy", "primary", `data-id="${e.id}"`)}
@@ -491,11 +493,13 @@ function render(navigate = false, companion) {
     "tracking-day": () => backButton()+heading(dayLabel(page().date))+rows(latest().filter(e=>e.day===page().date)), profile: profileView, news: newsView,
     "sport-help": () => backButton()+heading("훈련 스킨")+muted("새 일지에 입힐 스킨을 고르세요. 훈련을 확정하면 그날의 선수와 스킨이 일지와 훈련장에 보여요."), journal: journalView, adventure: adventureView, detail: detailView,
     exercise: exerciseView, editor: editorView, library: libraryView, "catalog-info": catalogDetailView,
+    "journal-drawing": drawingView, "journal-image": attachmentView,
     routines: routineListView, "routine-editor": routineEditorView,
     note: noteView, "goal-new": goalView, "goal-detail": goalView,
     growth: growthBoardView, "skill-new": skillGoalForm, "skill-detail": skillDetail,
     pick: () => backButton() + heading("지난 기록 가져오기") + rows(latest(), "copy") };
   $("#screen").innerHTML = views[page().view]();
+  mountJournalMedia();
   document.title = "운동일지 · " + ($("#screen h2")?.textContent ?? "오늘");
   document.querySelectorAll("[data-tab]").forEach((el) => {
     if (el.dataset.tab === pages[0].view) el.setAttribute("aria-current","page");
@@ -532,6 +536,7 @@ function openCopy(entry, index) {
   beginEditor("editor",copy);
 }
 function confirmEntry() {
+  if (attachmentJobs.has(draft.id)) { notify("첨부를 저장한 뒤 확정해 주세요."); return; }
   const next = structuredClone(book);
   const entry = structuredClone(draft);
   const old = next.entries.findIndex((e) => e.id === entry.id);
@@ -553,6 +558,10 @@ function confirmEntry() {
     entry.day = dayKey();
     entry.time = Date.now();
     next.entries.push(entry);
+  }
+  if (entry.workingSketch) {
+    if (!window.confirm("그리는 중인 그림이 있어요. 이 그림을 제외하고 일지를 확정할까요?")) return;
+    delete entry.workingSketch;
   }
   if (!finishEditor(next,entry.id)) return;
   home("today",true);
@@ -626,7 +635,9 @@ listenToWrites(document,"click", (event, submission) => {
     const next = el.dataset.reset === "sample" ? sampleBook() : emptyBook();
     next.athlete = athlete();
     next.previewEpoch = uid();
+    const replaced = book;
     if (save(next,true)) {
+      retireJournalMedia(notebookMedia(replaced));
       draft = null;
       liveEditors.clear();
       editorBases.clear();
@@ -708,6 +719,13 @@ listenToWrites(document,"click", (event, submission) => {
     if (entry) beginEditor("editor",entry,{editing:true},book.drafts?.find(item=>item.id===entry.id));
     break;
   case "detail": go("detail", { id }); break;
+  case "attachment-open": go("journal-image", { attachmentID:id, sourceID:el.dataset.source }); break;
+  case "attachment-remove": removeJournalAttachment(id); break;
+  case "drawing-open":
+    if (page().view==="editor" && persistEditor(page(),true)) go("journal-drawing", {sourceID:draft.id});
+    break;
+  case "drawing-undo": undoJournalStroke(); break;
+  case "drawing-attach": attachJournalDrawing(); break;
   case "exercise": go("exercise", { name: el.dataset.name }); break;
   case "library": go("library", { ex: ex == null ? null : Number(ex), query: "", region: "" }); break;
   case "catalog-info": go("catalog-info", { id, ex: page().ex }); break;
@@ -795,11 +813,12 @@ window.addEventListener("popstate",event=>{
   for (const complete of [...queuedEvents]) complete();
   const selectedTab = pendingBack?.tab;
   pendingBack = null;
-  if (!flushWorkspace()) { saveRoute(); return; }
+  if (!canLeaveJournal() || !flushWorkspace()) { saveRoute(); return; }
   refreshBook();
   restoreNavigation(event.state,selectedTab);
 });
 window.addEventListener("pagehide",()=>{
+  finishActiveStroke();
   const base = settlingWrite?.start ?? book;
   for (const complete of [...queuedEvents]) complete();
   flushWorkspace();

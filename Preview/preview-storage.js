@@ -131,17 +131,19 @@ async function coordinateWrite(run) {
 
 // Chromium coordinates writes from every preview window for this origin. A closing
 // tab drains already-delivered input events before the browser releases the document.
+function writeWithPreviewLock(run) {
+  const commit = () => coordinateWrite(run);
+  return globalThis.navigator?.locks
+    ? navigator.locks.request("workout-log-preview",commit).catch(error=>{
+      if (error.name === "SecurityError" || error.name === "NotSupportedError") return commit();
+      throw error;
+    }) : commit();
+}
 function listenToWrites(target, type, handler, capture = event=>event.target?.value) {
   target.addEventListener(type,event=>{
     const value = capture(event);
     const run = () => { if (queuedEvents.delete(run)) handler(event,value); };
     queuedEvents.add(run);
-    const commit = () => coordinateWrite(run);
-    const write = globalThis.navigator?.locks
-      ? navigator.locks.request("workout-log-preview",commit).catch(error=>{
-        if (error.name === "SecurityError" || error.name === "NotSupportedError") return commit();
-        throw error;
-      }) : commit();
-    write.catch(error=>{ console.error(error); notify("저장 처리가 중단됐어요. 브라우저 저장 공간을 확인해 주세요."); });
+    writeWithPreviewLock(run).catch(error=>{ console.error(error); notify("저장 처리가 중단됐어요. 브라우저 저장 공간을 확인해 주세요."); });
   });
 }

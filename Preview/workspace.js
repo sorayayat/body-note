@@ -56,7 +56,7 @@ function installEditor(item) {
   editorBases.set(item.id, {draft:book.drafts?.find(d=>d.id===item.id),source,epoch:book.previewEpoch});
 }
 function beginEditor(view, entry, options = {}, saved = null) {
-  if (!flushWorkspace()) return;
+  if (!canLeaveJournal() || !flushWorkspace()) return;
   if (view === "routine-editor" && !persistEditor(page(),true)) return;
   const item = saved ?? editorSnapshot({view,...options},entry);
   installEditor(item);
@@ -110,8 +110,11 @@ function keepConflictCopy() {
 }
 function finishEditor(next, id) {
   if (!editorIsCurrent(page())) return false;
+  const previousMedia = [...entryMedia(book.entries.find(entry=>entry.id===id)),
+    ...entryMedia(book.drafts?.find(item=>item.id===id)?.entry), ...entryMedia(draft)];
   next.drafts = (next.drafts ?? []).filter(item=>item.id!==id);
   if (!save(next)) return false;
+  retireJournalMedia(previousMedia);
   liveEditors.delete(id);
   editorBases.delete(id);
   draft = null;
@@ -163,6 +166,8 @@ function restoreRoutes(routes) {
       const reading = selectedReading(ctx);
       if (reading) Object.assign(ctx,{condition:conditionKey(reading.condition), name:reading.name});
     }
+    if (ctx.view === "journal-drawing" && !(valid.at(-1)?.view==="editor" && valid.at(-1).draftID===ctx.sourceID)) break;
+    if (ctx.view === "journal-image" && !entryForMediaRoute(valid.at(-1), ctx.sourceID, item?.entry)?.attachments?.some(a=>a.id===ctx.attachmentID)) break;
     if (ctx.view === "goal-detail" && !book.goals.some(g=>g.id===ctx.id)) break;
     if (ctx.view === "skill-detail" && !book.skillGoals?.some(g=>g.id===ctx.id)) break;
     if (ctx.purpose === "follow") ctx.text = book.entries.find(e=>e.id===ctx.id)?.followUp ?? "";
@@ -197,7 +202,7 @@ function flushForms() {
   unsavedForms.clear();
   return true;
 }
-function flushWorkspace() { return persistEditor() && flushForms(); }
+function flushWorkspace() { return flushJournalDrawing() && persistEditor() && flushForms(); }
 function clearForm(next,...ids) {
   if (next.formInputs) for (const id of ids) delete next.formInputs[formKey(id)];
 }

@@ -1,6 +1,6 @@
 # 운동일지
 
-운동과 재활의 세트별 수행량을 기록하고, 날짜별·운동별 변화와 최근 7일의 운동량을 돌아보는 한국어 iPhone 앱입니다. 사용자가 고른 동물은 일지를 바탕으로 활동을 돌아보고 경기 준비를 함께 하는 코치입니다.
+운동과 재활의 세트별 수행량을 기록하고, 날짜별·운동별 변화와 최근 7일의 운동량을 돌아보는 한국어 iPhone·iPad 앱입니다. 일지에 운동 사진을 남길 수 있고, iPad에서는 Apple Pencil이나 손가락으로 그린 그림도 첨부할 수 있습니다. 사용자가 고른 동물은 일지를 바탕으로 활동을 돌아보고 경기 준비를 함께 하는 코치입니다.
 
 ## Windows에서 화면 보기
 
@@ -15,13 +15,19 @@
 
 **지난 기록 가져오기**는 원래 스킨을 현재 선택한 동물에게 입혀 새 초안을 엽니다. 스킨은 초안에서 바꿀 수 있습니다. 캐릭터를 저장하기 전에 작성한 일지는 처음 열 때 프로필 동물과 기록의 종목을 조합합니다. 종목이 비어 있으면 프로필 스킨을 쓰고, 옛 축구·농구 기록은 원래 종목명과 러닝 스킨을 표시합니다. 예전 드릴의 상세 수치는 원래 일지에서 읽을 수 있습니다. 이를 가져오면 원래 거리 또는 시도 횟수가 일반 세트에 들어갑니다.
 
-## iPhone 앱 실행
+### 일지에 사진과 그림 남기기
 
-Mac의 Xcode 26 이상에서 **BodyNote** 스킴을 선택합니다. 지원하는 최소 버전은 iOS 17입니다. 실제 iPhone을 기기로 선택하고 앱 타깃의 **Signing & Capabilities → Team**에 본인의 팀을 지정한 뒤 **Run**을 누르면 홈 화면에 설치됩니다. 앱 표시 이름은 운동일지입니다. 기존에 설치한 사용자의 일지를 이어서 읽도록 번들 ID와 저장 경로를 유지합니다. [Xcode 프로젝트](BodyNote.xcodeproj)
+일지를 작성하거나 수정할 때 **첨부 → 사진 첨부**에서 사진을 고릅니다. iPad에서는 **그림 그리기**를 열어 펜·형광펜·지우개로 표시한 뒤 **일지에 첨부**를 누릅니다. 그리다가 닫으면 같은 일지에서 **그림 이어 그리기**로 다시 열 수 있습니다. Windows에서도 미리보기 설정에서 **iPad**를 선택하면 마우스나 펜으로 그려 볼 수 있습니다.
+
+첨부한 이미지를 누르면 크게 볼 수 있습니다. 확정된 일지의 첨부를 바꾸려면 **수정**을 누르세요. 수정 초안을 버리면 원래 첨부가 남고, 지난 기록을 오늘로 가져오거나 루틴을 저장할 때는 그날의 이미지가 원래 일지에만 남습니다. 일지와 첨부는 각 기기에 저장됩니다.
+
+## iPhone·iPad 앱 실행
+
+Mac의 Xcode 26 이상에서 **BodyNote** 스킴을 선택합니다. 최소 지원 버전은 iOS·iPadOS 17입니다. 연결한 iPhone 또는 iPad를 선택하고 앱 타깃의 **Signing & Capabilities → Team**에 본인의 팀을 지정한 뒤 **Run**을 누르면 홈 화면에 설치됩니다. iPad의 넓은 창에서는 왼쪽 메뉴로, 좁은 창에서는 하단 탭으로 이동합니다. 앱 표시 이름은 운동일지입니다. [Xcode 프로젝트](BodyNote.xcodeproj)
 
 ### 내부 베타
 
-Apple Silicon Mac에서 앱 화면을 바로 보려면 GitHub의 **Actions → Workout Log iOS**에서 해당 커밋의 성공한 실행을 엽니다. **Artifacts → WorkoutLog-iOS-Simulator-arm64**를 다운로드해 안쪽 ZIP까지 풀고, Xcode에서 iOS 26 이상 iPhone 시뮬레이터를 실행한 뒤 `BodyNote.app`을 시뮬레이터 창에 놓습니다. 이 앱은 그 실행에서 UI 테스트를 통과한 빌드입니다.
+Apple Silicon Mac에서 앱 화면을 바로 보려면 GitHub의 **Actions → Workout Log iOS**에서 해당 커밋의 성공한 실행을 엽니다. **Artifacts**에서 **WorkoutLog-iOS-Simulator-arm64** 또는 **WorkoutLog-iPadOS-Simulator-arm64**를 다운로드해 안쪽 ZIP까지 풉니다. Xcode에서 iOS 26 이상의 iPhone 또는 iPad 시뮬레이터를 실행한 뒤 `BodyNote.app`을 시뮬레이터 창에 놓습니다.
 
 1. 아래 검증을 실행하고 시뮬레이터 테스트 결과를 확인합니다. 지원하는 iPhone에서는 Apple Intelligence를 켜고 운동 전 긴장에 대해 질문해 모델 응답을 확인합니다. **코치 → 회복 알림 설정**에서 알림을 허용한 후 불편함을 기록해 다음 날 한 번 도착하는지도 확인합니다.
 2. Apple Developer Program 팀에서 App Store Connect에 동일한 번들 ID로 앱을 등록합니다. Xcode에서 배포 팀과 새 빌드 번호를 확인하고, 실제 iOS 기기 대상에서 **Product → Archive → Distribute App**으로 업로드합니다. [Apple 빌드 업로드 안내](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
@@ -36,13 +42,13 @@ Apple Silicon Mac에서 앱 화면을 바로 보려면 GitHub의 **Actions → W
 
 ### 데이터와 향후 연결
 
-iPhone은 기존 v1·v2 일지를 열 수 있고 다음 저장부터 v3 형식을 사용합니다. v3는 숙련 목표 입력을 원본 기록과 운동 조건에 함께 보관합니다. 이전 앱은 지원하는 버전보다 높은 파일을 열 때 쓰기를 중단합니다.
+iPhone·iPad 앱은 기존 v1~v3 일지를 열고 다음 저장부터 v4 형식을 사용합니다. 일지에는 첨부의 ID와 종류를 기록하고, 이미지와 작성 중인 스케치는 일지 옆의 앱 전용 폴더에 보관합니다. 일지 메타데이터를 성공적으로 저장한 뒤에만 사용이 끝난 첨부를 정리합니다. 이전 앱은 지원하는 버전보다 높은 파일을 열 때 쓰기를 중단합니다.
 
 숙련 목표를 쓰다가 원본 운동이나 세트 조건을 바꾸면 해당 목표의 생성을 멈추고 조건을 다시 선택할 수 있습니다. 마지막 세트 횟수만 달라지면 같은 조건으로 이어 씁니다. 이전 버전에서 쓴 목표값은 원문으로 보관하고, 사용할 운동을 확인한 뒤 직접 불러올 수 있습니다.
 
 Windows에서 두 창에 서로 다른 일지를 열면 각 창의 운동과 세트가 함께 저장됩니다. 같은 초안을 양쪽에서 고치면 **새 초안으로 보관**을 눌러 두 버전을 남길 수 있습니다. **오늘 → 작성 중**에는 첫 세트의 중량·수행량과 메모가 보여서 같은 이름으로 작성한 운동도 구분할 수 있습니다.
 
-iPhone은 앱 전용 파일을 원자적으로 갱신하고 iOS 파일 보호를 적용합니다. Windows 시안은 해당 브라우저의 로컬 저장소를 사용하며, 두 저장소는 독립적입니다. 현재 일지·대화 기능의 처리 경로는 기기 안에서 끝납니다. 향후 동기화는 저장소 인터페이스에, 서버 코치는 코칭 제공자 인터페이스에 연결할 수 있습니다. 서버 기능을 추가할 때는 전송할 기록이나 대화 맥락의 범위를 보여 주고 동의를 받은 뒤 사용하도록 설계합니다. [저장소 인터페이스](BodyNoteCore/Sources/BodyNoteCore/NotebookRepository.swift) · [기기 저장](BodyNoteCore/Sources/BodyNoteCore/NotebookFile.swift) · [코칭 인터페이스](BodyNoteCore/Sources/BodyNoteCore/TrainingCoach.swift)
+iPhone과 iPad에서는 앱 전용 파일에 Apple의 파일 보호를 적용합니다. Windows 시안은 일지와 작성 중인 획을 브라우저의 로컬 저장소에, 첨부한 이미지를 같은 브라우저의 IndexedDB에 보관합니다. 일지와 대화는 각 기기에서 처리합니다. 향후 동기화는 저장소 인터페이스에, 서버 코치는 코칭 제공자 인터페이스에 연결할 수 있습니다. 서버 기능을 추가할 때는 전송할 기록이나 대화 맥락의 범위를 보여 주고 동의를 받은 뒤 사용하도록 설계합니다. [저장소 인터페이스](BodyNoteCore/Sources/BodyNoteCore/NotebookRepository.swift) · [기기 저장](BodyNoteCore/Sources/BodyNoteCore/NotebookFile.swift) · [코칭 인터페이스](BodyNoteCore/Sources/BodyNoteCore/TrainingCoach.swift)
 
 ## 기록과 성장
 
@@ -89,6 +95,7 @@ iPhone은 앱 전용 파일을 원자적으로 갱신하고 iOS 파일 보호를
 | 확인할 동작 | 위치 |
 | --- | --- |
 | 초안 생성과 세트 입력 | [JournalEntry.swift](BodyNoteCore/Sources/BodyNoteCore/JournalEntry.swift), [JournalEditor.swift](BodyNote/JournalEditor.swift) |
+| 사진 첨부와 iPad 그리기 | [미디어 보관](BodyNoteCore/Sources/BodyNoteCore/JournalAttachment.swift), [갤러리](BodyNote/JournalAttachmentViews.swift), [그림 편집](BodyNote/JournalDrawingView.swift) |
 | 미완성 숫자와 루틴 초안 복원 | [WorkoutDraft.swift](BodyNoteCore/Sources/BodyNoteCore/WorkoutDraft.swift), [브라우저 작업 화면](Preview/workspace.js) |
 | 7일 집계와 회복 안내 | [Tracking.swift](BodyNoteCore/Sources/BodyNoteCore/Tracking.swift), [주간 화면](BodyNote/WeeklyTrackingView.swift) |
 | 동물별 대화와 기기 모델·알림 | [TrainingCoach.swift](BodyNoteCore/Sources/BodyNoteCore/TrainingCoach.swift), [CoachView.swift](BodyNote/CoachView.swift) |
@@ -109,9 +116,9 @@ swift test --package-path BodyNoteCore
 bash Scripts/test-ios-beta.sh
 ```
 
-앞의 세 명령은 Windows에서 실행할 수 있습니다. Node 22 이상과 Edge 또는 Chrome을 사용합니다. 첫 명령은 데이터 로직을, 다음 두 명령은 독립된 임시 브라우저 프로필에서 실제 화면을 검사합니다. 일지 작성과 확정, 훈련장·라커룸 왕복, 검색·달력 복원, 운동별 고정 메모, 두 창에서 같은 기록을 편집하는 경우를 확인합니다. Windows CI의 **WorkoutLog-Windows-Screens**에서 테스트 중 촬영한 오늘·훈련장·라커룸 화면을 받을 수 있습니다. 브라우저 위치는 `WORKOUT_TEST_BROWSER`로 지정할 수 있습니다. [주요 사용 흐름](Scripts/check-preview.mjs) · [독립 회귀 검사](Scripts/preview-regressions.test.mjs) · [Windows CI](.github/workflows/preview.yml)
+앞의 세 명령은 Windows에서 실행할 수 있습니다. Node 22 이상과 Edge 또는 Chrome을 사용합니다. 첫 명령은 데이터 로직을, 다음 두 명령은 독립된 임시 브라우저 프로필에서 실제 화면을 검사합니다. 사진을 고르고 그림을 그린 뒤 브라우저를 다시 열어 첨부를 확인하고, 일지 작성과 확정, 훈련장·라커룸 왕복, 검색·달력 복원, 운동별 고정 메모, 두 창에서 같은 기록을 편집하는 경우도 검사합니다. Windows CI의 **WorkoutLog-Windows-Screens**에서 오늘·훈련장·라커룸과 iPad 모드의 그리기·일지 화면을 받을 수 있습니다. 브라우저 위치는 `WORKOUT_TEST_BROWSER`로 지정할 수 있습니다. [주요 사용 흐름](Scripts/check-preview.mjs) · [독립 회귀 검사](Scripts/preview-regressions.test.mjs) · [Windows CI](.github/workflows/preview.yml)
 
-Swift 패키지 테스트는 일지·성장·코칭 로직을 검사합니다. 마지막 명령은 Mac에서 iOS 26 이상 SDK와 Foundation Models를 확인하고 iPhone용 Release 빌드와 시뮬레이터 UI 테스트를 실행합니다. Xcode 설정의 **Components**에서 iOS 26 이상 시뮬레이터를 설치할 수 있습니다. UI 테스트는 각각 별도 일지로 기록 입력·도감 왕복·재실행·확정, 기본 루틴 복사, 부위와 별칭으로 검색한 동작 선택, 코치의 미전송 문장 복원, 훈련장과 라커룸의 화면 이동을 확인합니다. [UI 테스트](BodyNoteUITests/WorkoutJournalUITests.swift) · [검증 스크립트](Scripts/test-ios-beta.sh) · [GitHub Actions](.github/workflows/ios.yml)
+Swift 패키지 테스트는 일지·성장·코칭 로직과 첨부 파일의 저장·복원을 검사합니다. 마지막 명령은 Mac에서 iOS 26 이상 SDK와 Foundation Models를 확인하고 범용 Release 빌드와 iPhone 시뮬레이터 UI 테스트를 실행합니다. iPad 경로는 `WORKOUT_SIM_FAMILY=iPad bash Scripts/test-ios-beta.sh`로 검사합니다. 스크립트는 사진 선택기 검증을 위해 저장소의 훈련장 배지 이미지를 해당 시뮬레이터의 사진 보관함에 넣습니다. iPad 테스트는 가로 회전과 앱 재실행을 거쳐 그린 내용을 일지에 첨부하는 과정도 다룹니다. [UI 테스트](BodyNoteUITests/WorkoutJournalUITests.swift) · [검증 스크립트](Scripts/test-ios-beta.sh) · [GitHub Actions](.github/workflows/ios.yml)
 
 ### 베타 가용률 측정
 

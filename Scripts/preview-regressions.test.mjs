@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {fileURLToPath} from "node:url";
 import {until, withPreview} from "./preview-browser.mjs";
 import {preparePreviewScreenshots, savePreviewScreenshot} from "./preview-screenshots.mjs";
 
@@ -415,3 +416,199 @@ test("기록 작성 중 오른쪽 동작 미리보기를 열고 돌아오면 미
     await app.tab("today");
     assert.match(await screenText(app), /0일\s*·\s*0회\s*·\s*0세트/u);
   }));
+
+async function selectJournalPhoto(app, asset) {
+  const {root} = await app.send("DOM.getDocument",{depth:0});
+  const {nodeId} = await app.send("DOM.querySelector",{nodeId:root.nodeId,selector:"#journal-photos"});
+  assert.ok(nodeId, "사진 선택 입력");
+  await app.send("DOM.setFileInputFiles",{nodeId,files:[fileURLToPath(new URL(asset,import.meta.url))]});
+}
+
+async function inkLine(app, type, from, to, through = []) {
+  const bounds = await app.evaluate(`{
+    const canvas=document.querySelector("#journal-ink");
+    canvas.scrollIntoView({block:"center",behavior:"instant"});
+    const r=canvas.getBoundingClientRect();
+    ({x:r.x,y:r.y,width:r.width,height:r.height});
+  }`);
+  const point = ([x,y])=>({x:Math.round(bounds.x+bounds.width*x),y:Math.round(bounds.y+bounds.height*y)});
+  if (type==="touch") {
+    await app.send("Emulation.setTouchEmulationEnabled",{enabled:true,maxTouchPoints:2});
+    await app.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[point(from)]});
+    for (const step of [...through,to]) await app.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[point(step)]});
+    await app.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
+  } else {
+    await app.send("Input.dispatchMouseEvent",{type:"mousePressed",pointerType:type,button:"left",buttons:1,clickCount:1,...point(from)});
+    for (const step of [...through,to]) await app.send("Input.dispatchMouseEvent",{type:"mouseMoved",pointerType:type,buttons:1,...point(step)});
+    await app.send("Input.dispatchMouseEvent",{type:"mouseReleased",pointerType:type,button:"left",buttons:0,clickCount:1,...point(to)});
+  }
+  await afterWrites(app);
+}
+
+test("사진과 펜·손가락 그림은 Edge를 종료한 뒤에도 같은 일지에만 남는다", async () => {
+  let journalID, photoID;
+  const weight = '[data-field="kg"][data-ex="0"][data-set="0"]';
+  // A physical pointer coordinate can map to a neighboring backing pixel at different device scales.
+  const hasInk = (app,x,y)=>app.evaluate(`document.querySelector("#journal-ink").getContext("2d")
+    .getImageData(${x-6},${y-6},12,12).data.some((value,i)=>i%4===0 && value<140)`);
+  const rendered = (app,selector)=>until("visible stored attachment pixels",()=>app.evaluate(`Boolean(document.querySelector(${JSON.stringify(selector)})?.naturalWidth)`));
+  await withPreview(async ({app})=>{
+    await app.action("new");
+    await app.input(exerciseName,"스쿼트");
+    await app.input(weight,"17.");
+    await app.input('[data-field="note"][data-ex="0"]',"오른무릎 동작");
+    await selectJournalPhoto(app,"../BodyNote/Assets.xcassets/TrainingTrack.imageset/art.png");
+    await until("file picker photo persisted",async()=>(await app.stored())?.drafts?.[0].entry.attachments?.length===1);
+    const entry = (await app.stored()).drafts[0].entry;
+    journalID = entry.id;
+    photoID = entry.attachments[0].id;
+    assert.deepEqual(Object.keys(entry.attachments[0]).sort(),["id","kind"]);
+    assert.equal(entry.attachments[0].kind,"photo");
+    assert.equal(await app.visible('[data-action="drawing-open"]'),false);
+    await rendered(app,'[data-media-blob]');
+    await app.action("attachment-open");
+    await rendered(app,"#screen img.attachment-full");
+    await app.action("back");
+    await waitForHeading(app,"오늘의 기록");
+    await app.click('[data-device="ipad"]');
+    await app.action("drawing-open");
+    await waitForHeading(app,"그림 그리기");
+    assert.equal(await app.evaluate('document.querySelector("[data-action=drawing-attach]").disabled'),true);
+    await inkLine(app,"pen",[0.30,0.5],[0.65,0.5]);
+    await until("unfinished ink saved",async()=>!!(await app.stored()).drafts[0].entry.workingSketch);
+    assert.equal(await hasInk(app,512,384),true,"pen line crosses the middle of the page");
+    assert.equal((await app.stored()).entries.length,0);
+    // Close the entire Edge process while the drawing is still open.
+  },{afterRelaunch:async ({app,newTab})=>{
+    const initial = await app.stored();
+    assert.equal(initial.drafts[0].id,journalID);
+    assert.equal(initial.entries.length,0);
+    await preparePreviewScreenshots(app);
+    await app.click('[data-device="ipad"]');
+    await app.action("new");
+    await waitForHeading(app,"오늘의 기록");
+    assert.equal(await app.value(weight),"17.");
+    assert.equal(await app.value('[data-field="note"][data-ex="0"]'),"오른무릎 동작");
+    assert.match(await screenText(app),/그림 이어 그리기/);
+    await app.send("Emulation.setDeviceMetricsOverride",{width:620,height:820,deviceScaleFactor:1,mobile:false});
+    assert.equal(await app.evaluate('document.querySelector("#tabs").getBoundingClientRect().top >= document.querySelector("#screen").getBoundingClientRect().bottom-1'),true);
+    await app.send("Emulation.setDeviceMetricsOverride",{width:1450,height:980,deviceScaleFactor:1,mobile:false});
+    assert.equal(await app.evaluate('document.querySelector("#tabs").getBoundingClientRect().right <= document.querySelector("#screen").getBoundingClientRect().left+1'),true);
+    await app.evaluate("window.confirm=()=>false");
+    await app.action("confirm"); await afterWrites(app);
+    assert.equal((await app.stored()).entries.length,0);
+    assert.equal(await app.value(weight),"17.");
+    await app.action("drawing-open");
+    await waitForHeading(app,"그림 그리기");
+    assert.equal(await hasInk(app,512,384),true,"the saved pen stroke keeps its location after restart");
+    await inkLine(app,"touch",[0.65,0.5],[0.65,0.8]);
+    assert.equal(await hasInk(app,666,475),true,"finger draws a second stroke");
+    await app.action("drawing-undo"); await afterWrites(app);
+    assert.equal(await hasInk(app,666,475),false,"undo removes the second stroke");
+    await inkLine(app,"touch",[0.65,0.5],[0.65,0.8]);
+    await inkLine(app,"pen",[0.65,0.8],[0.77,0.8]);
+    await inkLine(app,"pen",[0.30,0.5],[0.39,0.26]);
+    await inkLine(app,"pen",[0.375,0.30],[0.61,0.27],[[0.45,0.38]]);
+    const head = Array.from({length:17},(_,i)=>[
+      .395+.038*Math.cos(i*Math.PI/8), .208+.051*Math.sin(i*Math.PI/8)
+    ]);
+    await inkLine(app,"pen",head[0],head.at(-1),head.slice(1,-1));
+    await savePreviewScreenshot(app,"ipad-drawing");
+    await app.action("drawing-attach");
+    await waitForHeading(app,"오늘의 기록");
+    await until("two attachments persisted",async()=>(await app.stored()).drafts[0].entry.attachments.length===2);
+    const complete = (await app.stored()).drafts[0].entry;
+    assert.deepEqual(complete.attachments.map(a=>a.kind),["photo","drawing"]);
+    assert.equal(complete.workingSketch,undefined);
+    await app.input(weight,"17.5");
+    await app.action("confirm");
+    await until("attachments committed once",async()=>(await app.stored()).entries.length===1);
+    await app.click(action("detail","id",journalID));
+    await waitForHeading(app,"스쿼트");
+    await rendered(app,`[data-media-blob="${photoID}"]`);
+    await rendered(app,`[data-media-blob="${complete.attachments[1].id}"]`);
+    if (process.env.WORKOUT_PREVIEW_SCREENSHOTS) await until("save notice closed before iPad capture",()=>app.evaluate('document.querySelector("#notice").hidden'));
+    await app.evaluate('document.querySelector(".media-section").scrollIntoView({block:"center",behavior:"instant"})');
+    await savePreviewScreenshot(app,"ipad-journal");
+    await app.click(action("attachment-open","id",complete.attachments[1].id));
+    await waitForHeading(app,"그림");
+    await app.reload();
+    await rendered(app,".attachment-full");
+    await app.action("back"); await waitForHeading(app,"스쿼트");
+    await app.action("copy"); await waitForHeading(app,"오늘의 기록");
+    assert.equal(await app.visible("[data-media-blob]"),false);
+    await app.action("back"); await waitForHeading(app,"스쿼트");
+    await app.action("edit");
+    await waitForHeading(app,"기록 수정");
+    await app.click(action("attachment-remove","id",photoID));
+    await afterWrites(app);
+    assert.equal((await app.stored()).entries[0].attachments.length,2);
+    const other = await newTab();
+    await other.click(action("detail","id",journalID));
+    await rendered(other,`[data-media-blob="${photoID}"]`);
+    await app.action("confirm"); await waitForHeading(app,"오늘");
+    assert.deepEqual((await app.stored()).entries[0].attachments,[complete.attachments[1]]);
+    await other.tab("today");
+    await until("unreferenced photo reclaimed after closing its last view",
+      ()=>app.evaluate(`readAttachmentBlob(${JSON.stringify(photoID)}).then(()=>false,()=>true)`));
+  }});
+});
+
+test("읽을 수 없는 사진은 추가되지 않고 일지 초안은 그대로 남는다",()=>withPreview(async ({app})=>{
+  await app.action("new");
+  await app.input(exerciseName,"플랭크");
+  await selectJournalPhoto(app,"../BodyNoteCore/Sources/BodyNoteCore/Resources/exercise-catalog.json");
+  await until("unreadable photo is explained",()=>app.evaluate('document.querySelector("#notice").textContent.includes("이 사진을 열 수 없어요")'));
+  const entry = (await app.stored()).drafts[0].entry;
+  assert.equal(entry.exercises[0].name,"플랭크");
+  assert.equal(entry.attachments,undefined);
+  assert.equal(await app.evaluate('document.querySelector("[data-action=confirm]").disabled'),false);
+}));
+
+test("다른 창이 사진을 제거해도 열린 수정 초안의 충돌 복사본에는 실제 이미지가 남는다",()=>withPreview(async ({app,newTab})=>{
+  await app.action("new");
+  await app.input(exerciseName,"스쿼트");
+  await selectJournalPhoto(app,"../BodyNoteCore/Sources/BodyNoteCore/Resources/ExerciseArt/bodyweight-squat.png");
+  await until("attached",async()=>(await app.stored())?.drafts[0].entry.attachments?.length===1);
+  await app.action("confirm"); await waitForHeading(app,"오늘");
+  const [original] = (await app.stored()).entries, [photo] = original.attachments;
+  const kept = await newTab();
+  for (const tab of [kept,app]) {
+    await tab.click(action("detail","id",original.id));
+    await tab.action("edit"); await waitForHeading(tab,"기록 수정");
+    await until("original pixels in editor",()=>tab.evaluate('Boolean(document.querySelector("[data-media-blob]")?.naturalWidth)'));
+  }
+  await app.click(action("attachment-remove","id",photo.id));
+  await app.action("confirm"); await waitForHeading(app,"오늘");
+  await kept.input('[data-field="note"][data-ex="0"]',"다른 창에 남긴 버전");
+  await until("conflict copy available",()=>kept.visible('[data-action="copy-conflict"]'));
+  await kept.action("copy-conflict");
+  await kept.action("confirm"); await waitForHeading(kept,"오늘");
+  const entries = (await kept.stored()).entries;
+  assert.equal(entries.length,2);
+  assert.equal(entries.find(e=>e.id===original.id).attachments.length,0);
+  const copy = entries.find(e=>e.id!==original.id);
+  assert.deepEqual(copy.attachments,[photo]);
+  await kept.click(action("detail","id",copy.id));
+  await kept.action("attachment-open"); await kept.reload();
+  await until("conflict copy can still open real photo",()=>kept.evaluate('Boolean(document.querySelector(".attachment-full")?.naturalWidth)'));
+}));
+
+test("이미지 저장 트랜잭션이 실패하면 일지에는 빈 이미지 참조가 생기지 않고 재시도할 수 있다",()=>withPreview(async ({app})=>{
+  await app.action("new"); await app.input(exerciseName,"로우");
+  await app.evaluate(`{
+    window.realMediaAdd=IDBObjectStore.prototype.add;
+    IDBObjectStore.prototype.add=function(value,id) {
+      if (value instanceof Blob) { this.transaction.abort(); return; }
+      return window.realMediaAdd.call(this,value,id);
+    };
+  }`);
+  const source = "../BodyNoteCore/Sources/BodyNoteCore/Resources/ExerciseArt/bodyweight-squat.png";
+  await selectJournalPhoto(app,source);
+  await until("save error surfaced",()=>app.evaluate('document.querySelector("#notice").textContent.includes("저장하지 못했어요")'));
+  assert.equal((await app.stored()).drafts[0].entry.attachments,undefined);
+  assert.equal(await app.value(exerciseName),"로우");
+  await app.evaluate("IDBObjectStore.prototype.add=window.realMediaAdd");
+  await selectJournalPhoto(app,source);
+  await until("one attachment after retry",async()=>(await app.stored()).drafts[0].entry.attachments?.length===1);
+}));

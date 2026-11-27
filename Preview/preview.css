@@ -286,6 +286,49 @@ textarea { min-height: 58px; resize: vertical; }
 .coach-composer { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8px; }
 .coach-composer label.field { margin: 0; }
 .coach-composer .primary { min-height: 42px; }
+.preview-devices { display: inline-flex; gap: 4px; margin-bottom: 4px; }
+.preview-devices button { min-width: 70px; padding-inline: 12px; color: inherit; }
+.tablet-preview .workspace { grid-template-columns: minmax(0,1024px) minmax(230px,300px); gap: clamp(16px,3vw,44px); }
+.tablet-preview .phone { border-radius: 32px; display: grid; container: tablet-frame / inline-size;
+  grid-template-columns: auto minmax(0,1fr); grid-template-rows: auto auto minmax(0,1fr) auto auto auto; }
+.tablet-preview .phone > * { grid-column: 1/-1; }
+.tablet-preview .status { grid-row: 1; }
+.tablet-preview #notice { grid-row: 2; }
+.tablet-preview #screen { grid-row: 3; min-width: 0; }
+.tablet-preview #record-bar { grid-row: 4; }
+.tablet-preview #tabs { grid-row: 5; }
+.tablet-preview .home-line { grid-row: 6; }
+@container tablet-frame (min-width:820px) {
+  .tablet-preview #tabs { grid-column: 1; grid-row: 2/6; display: flex; flex-direction: column;
+    align-items: stretch; gap: 6px; padding: 12px 9px; width: 128px; border: 0; border-right: 1px solid var(--line); }
+  .tablet-preview #tabs button { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-start;
+    gap: 10px; padding: 9px 12px; }
+  .tablet-preview #screen,.tablet-preview #record-bar,.tablet-preview #notice { grid-column: 2; }
+}
+.tablet-preview .island { display: none; }
+.tablet-preview #screen { padding-inline: clamp(14px,3vw,32px); }
+.tablet-preview .hero { max-width: 580px; margin-inline: auto; }
+.media-section { margin-block: 18px; }
+.media-actions,.drawing-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.media-actions > *, .drawing-tools > button { min-height: 44px; }
+.file-control { position: relative; display: inline-grid; place-items: center; cursor: pointer; overflow: hidden; }
+.file-control:focus-within { outline: 3px solid var(--orange); outline-offset: 2px; }
+.file-control input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.media-section [role=status] { display: block; color: var(--muted); }
+.attachment-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill,minmax(min(125px,100%),1fr)); }
+.attachment-grid:not(:empty) { margin-top: 8px; }
+.attachment-tile { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fffef9; }
+.attachment-tile > button:first-child { display: grid; width: 100%; padding: 0; text-align: left; border: 0; background: transparent; }
+.attachment-tile strong { padding: 6px 10px; font-size: 13px; }
+.attachment-tile img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #edeadd; }
+.attachment-tile .quiet { width: 100%; min-height: 44px; border-top: 1px solid var(--line); }
+.attachment-full { display: block; width: 100%; height: auto; max-height: 74dvh; object-fit: contain; background: #fff; border-radius: 10px; }
+.drawing-tools { justify-content: space-between; margin: 12px 0 8px; }
+.drawing-tools label { display: inline-flex; align-items: center; gap: 5px; }
+.drawing-tools input[type=color] { width: 44px; height: 44px; padding: 4px; }
+#journal-ink { display: block; width: 100%; height: auto; aspect-ratio: 4/3; border: 1px solid var(--line);
+  border-radius: 8px; background: #fff; touch-action: none; user-select: none; cursor: crosshair; }
+#drawing-status { min-height: 1.5em; }
 #coach-input { width: 100%; min-height: 42px; max-height: 18dvh; resize: vertical; }
 @media(max-height:825px) {
   #screen .today-title { margin-top: 2px; font-size: 32px; }
@@ -295,6 +338,7 @@ textarea { min-height: 58px; resize: vertical; }
   body { background: var(--paper); }
   .workspace { display: flex; flex-direction: column; gap: 0; padding: 0; }
   .phone { width: min(100%,430px); height: 100dvh; min-height: 400px; border: none; box-shadow: none; border-radius: 0; }
+  .tablet-preview .phone { width: 100%; border-radius: 0; }
   .controls { width: 100%; background: #504f42; padding: 18px max(18px,calc((100% - 390px)/2)); }
   .controls h1 { font-size: 18px; }
   .status { height: 32px; }

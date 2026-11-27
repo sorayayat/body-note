@@ -110,7 +110,7 @@ async function connect(address, sockets, exceptions) {
     stored:()=>evaluate("JSON.parse(localStorage.getItem('body-note-demo.v1'))")};
 }
 
-export async function withPreview(run, {binary: requestedBinary, onBrowserReady} = {}) {
+export async function withPreview(run, {binary: requestedBinary, onBrowserReady, afterRelaunch} = {}) {
   const binary = requestedBinary ?? [process.env.WORKOUT_TEST_BROWSER, process.env.CHROME_BIN,
     "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
     "C:/Program Files/Google/Chrome/Application/chrome.exe",
@@ -121,6 +121,23 @@ export async function withPreview(run, {binary: requestedBinary, onBrowserReady}
   if (!binary) throw Error("Set WORKOUT_TEST_BROWSER to an installed Chrome or Edge executable.");
   const temporary = await realpath(os.tmpdir());
   const profile = await mkdtemp(path.join(temporary,"workout-preview-"));
+  try {
+    const result = await runPreviewSession(binary,profile,run,onBrowserReady);
+    if (afterRelaunch) {
+      // Edge may leave the old debugging port in its profile after a graceful shutdown.
+      await rm(path.join(profile,"DevToolsActivePort"),{force:true});
+      await runPreviewSession(binary,profile,afterRelaunch);
+    }
+    return result;
+  } finally {
+    const cleanup=await realpath(profile);
+    if (path.dirname(cleanup)===temporary && path.basename(cleanup).startsWith("workout-preview-")) {
+      await rm(cleanup,{recursive:true,force:true,maxRetries:5,retryDelay:180});
+    }
+  }
+}
+
+async function runPreviewSession(binary, profile, run, onBrowserReady) {
   const browser = spawn(binary,["--headless=new","--disable-gpu","--no-first-run","--no-default-browser-check",
     "--disable-background-networking","--disable-sync","--disable-extensions","--remote-debugging-address=127.0.0.1",
     "--remote-debugging-port=0","--user-data-dir="+profile,"about:blank"],{stdio:"ignore",windowsHide:true});
@@ -159,11 +176,10 @@ export async function withPreview(run, {binary: requestedBinary, onBrowserReady}
   } finally {
     if (app) await app.send("Browser.close").catch(() => {});
     for (const socket of sockets) socket.close();
-    if (browser.exitCode===null) browser.kill();
     await Promise.race([closed, pause(1500, undefined, {ref: false})]);
-    const cleanup=await realpath(profile);
-    if (path.dirname(cleanup)===temporary && path.basename(cleanup).startsWith("workout-preview-")) {
-      await rm(cleanup,{recursive:true,force:true,maxRetries:5,retryDelay:180});
+    if (browser.pid && browser.exitCode===null && browser.signalCode===null) {
+      browser.kill();
+      await Promise.race([closed, pause(1500, undefined, {ref: false})]);
     }
   }
 }
