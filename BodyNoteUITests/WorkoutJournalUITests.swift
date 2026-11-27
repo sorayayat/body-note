@@ -345,11 +345,11 @@ final class WorkoutJournalUITests: XCTestCase {
             "WorkoutLogAttachmentFixture", "Photo,", "사진,")
         let asset = app.images.matching(assetLabel).firstMatch
         if asset.waitForExistence(timeout: 8) {
-            asset.tap()
+            tapPhotoPickerItem(asset, in: app)
         } else {
             let gridAsset = app.collectionViews["PhotosGridView"].cells.firstMatch
             XCTAssertTrue(gridAsset.waitForExistence(timeout: 5), "시스템 사진 선택기에 테스트 사진이 있어야 합니다.")
-            gridAsset.tap()
+            tapPhotoPickerItem(gridAsset, in: app)
         }
         let add = app.buttons.matching(NSPredicate(format:
             "label BEGINSWITH[c] %@ OR label BEGINSWITH %@ OR label IN %@",
@@ -357,7 +357,7 @@ final class WorkoutJournalUITests: XCTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 8))
         let selectionReady = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: add)
         XCTAssertEqual(XCTWaiter.wait(for: [selectionReady], timeout: 8), .completed)
-        add.tap()
+        tapPhotoPickerItem(add, in: app)
         let thumbnail = app.buttons["journal.attachment.thumbnail.photo"].firstMatch
         XCTAssertTrue(thumbnail.waitForExistence(timeout: 15))
         app.terminate()
@@ -373,6 +373,21 @@ final class WorkoutJournalUITests: XCTestCase {
         thumbnail.tap()
         XCTAssertTrue(app.navigationBars["사진 보기"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.images["journal.attachment.image"].firstMatch.waitForExistence(timeout: 8))
+    }
+
+    @MainActor
+    private func tapPhotoPickerItem(_ item: XCUIElement, in app: XCUIApplication,
+                                    file: StaticString = #filePath, line: UInt = #line) {
+        // The compact system picker can expose a visible thumbnail with no AX hit point.
+        // Tap the center of its displayed frame using the app window's screen coordinates.
+        let window = app.frame
+        let visible = item.frame.intersection(window)
+        guard !visible.isEmpty else {
+            XCTFail("사진 선택기 항목이 화면에 보여야 합니다.", file: file, line: line)
+            return
+        }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: visible.midX - window.minX, dy: visible.midY - window.minY)).tap()
     }
 
     /// The black test stroke crosses the center of an otherwise white page.
