@@ -129,6 +129,12 @@ public struct JournalEntry: Identifiable, Codable, Equatable {
     public var bodySignal: BodySignal?
     public var note = ""
     public var followUp = ""
+    private var savedAttachments: [JournalAttachment]?
+
+    public var attachments: [JournalAttachment] {
+        get { savedAttachments ?? [] }
+        set { savedAttachments = newValue.isEmpty ? nil : newValue }
+    }
 
     public init(kind: EntryKind = .training, sport: TrainingSport? = nil, exercises: [Exercise] = [Exercise()],
                 date: Date = .now, timeZone: TimeZone = .current) {

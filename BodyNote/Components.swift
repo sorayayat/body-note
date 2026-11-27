@@ -55,6 +55,12 @@ struct EntryRow: View {
                     .compactMap { $0 }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary)
             }
+            if !entry.attachments.isEmpty {
+                Spacer(minLength: 4)
+                Label("\(entry.attachments.count)", systemImage: "paperclip")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .accessibilityLabel("첨부 \(entry.attachments.count)개")
+            }
         }
         .padding(.vertical, 4)
     }

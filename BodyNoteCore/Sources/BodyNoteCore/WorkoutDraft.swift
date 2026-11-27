@@ -7,6 +7,8 @@ public struct WorkoutDraft: Codable, Identifiable, Equatable {
     public var name: String
     public var routineID: UUID?
     public var parentID: UUID?
+    // Cleared in the same notebook write that attaches the rendered image.
+    public var drawingID: UUID?
     // Keep even unfinished numbers (e.g. an empty rep count or "12.") exactly as typed.
     public var numbers: [String: String] = [:]
     public var id: UUID { entry.id }

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import BodyNoteCore
 
 struct ComposerRequest: Identifiable {
@@ -45,6 +46,8 @@ struct ComposerSheet: View {
 }
 
 struct JournalEditor: View {
+    private struct PresentedDrawing: Identifiable { let id: UUID }
+
     @EnvironmentObject private var store: JournalStore
     @Environment(\.dismiss) private var dismiss
     @State private var draft: WorkoutDraft
@@ -53,7 +56,17 @@ struct JournalEditor: View {
     @State private var savedRoutineName: String?
     private let editing: Bool
     @State private var discarding = false
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var processedPhotos = 0
+    @State private var presentedDrawing: PresentedDrawing?
+    @State private var hasSketch = false
+    @State private var confirmingWithoutSketch = false
     private var fields: Binding<WorkoutDraft> { store.editorFields($draft) }
+    private var importingPhotos: Bool { !selectedPhotos.isEmpty }
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    private var scratchExists: Bool {
+        draft.drawingID.map { store.media.hasDrawingDraft(for: $0) } ?? false
+    }
 
     init(initial: WorkoutDraft, editing: Bool) {
         _draft = State(initialValue: initial)
@@ -115,25 +128,38 @@ struct JournalEditor: View {
                 }
                 TextField("일지 메모 (선택)", text: fields.entry.note, axis: .vertical)
             }
+            attachmentSection
             Section {
-                Button(editing ? "수정 내용 확정" : "오늘 기록으로 확정", action: confirm)
-                    .frame(maxWidth: .infinity).font(.headline)
-                    .accessibilityIdentifier("workout.confirm")
+                confirmButton
                 if store.book.drafts.contains(where: { $0.id == draft.id }) {
                     Button("초안 삭제", role: .destructive) { discarding = true }
                 }
             } footer: { DraftSaveStatus() }
+        }
+        .disabled(importingPhotos)
+        .safeAreaInset(edge: .bottom) { photoProgress }
+        .task(id: selectedPhotos) { await importPhotos(selectedPhotos) }
+        .onAppear { hasSketch = scratchExists }
+        .onDisappear { selectedPhotos = [] }
+        .fullScreenCover(item: $presentedDrawing, onDismiss: { hasSketch = scratchExists }) { presented in
+            NavigationStack {
+                JournalDrawingView(draftID: presented.id) { data in
+                    guard draft.drawingID == presented.id else { throw CocoaError(.userCancelled) }
+                    try appendAttachment(data, kind: .drawing)
+                }
+            }
         }
         .navigationTitle(editing ? "기록 수정" : "오늘의 기록")
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.immediately)
         .toolbar { ToolbarItem(placement: .cancellationAction) {
             Button("닫기") {
+                guard !importingPhotos else { return }
                 do { try store.flushInputs(); dismiss() }
                 catch { self.error = error.localizedDescription }
-            }
+            }.disabled(importingPhotos)
         } }
-        .interactiveDismissDisabled(store.inputSaveProblem != nil)
+        .interactiveDismissDisabled(importingPhotos || store.inputSaveProblem != nil)
         .confirmationDialog("이 초안을 삭제할까요?", isPresented: $discarding, titleVisibility: .visible) {
             Button("초안 삭제", role: .destructive) {
                 do { try store.update { $0.removeDraft(draft.id) }; dismiss() }
@@ -143,12 +169,122 @@ struct JournalEditor: View {
         .saveError($error)
     }
 
+    private var attachmentSection: some View {
+        Section("첨부") {
+            PhotosPicker(selection: $selectedPhotos, selectionBehavior: .ordered, matching: .images,
+                         preferredItemEncoding: .current) {
+                Label("사진 첨부", systemImage: "photo.on.rectangle")
+            }
+            .accessibilityIdentifier("journal.attachment.photo")
+            if isPad {
+                Button(action: openDrawing) {
+                    Label(hasSketch ? "그림 이어 그리기" : "그림 그리기", systemImage: "pencil.tip")
+                }
+                .accessibilityIdentifier("journal.attachment.draw")
+            }
+            if !entry.attachments.isEmpty {
+                JournalAttachmentGrid(attachments: entry.attachments, onRemove: removeAttachment)
+            }
+        }
+    }
+
+    @ViewBuilder private var photoProgress: some View {
+        if importingPhotos {
+            HStack {
+                ProgressView()
+                Text("사진 가져오는 중 · \(processedPhotos) / \(selectedPhotos.count)")
+                    .font(.subheadline).monospacedDigit()
+                Spacer()
+                Button("중단") { selectedPhotos = [] }
+            }
+            .padding().background(.regularMaterial)
+        }
+    }
+
+    private var confirmButton: some View {
+        Button(editing ? "수정 내용 확정" : "오늘 기록으로 확정") {
+            guard !importingPhotos else { return }
+            if isPad, scratchExists { confirmingWithoutSketch = true }
+            else { confirm() }
+        }
+        .frame(maxWidth: .infinity).font(.headline)
+        .accessibilityIdentifier("workout.confirm")
+        .confirmationDialog("아직 첨부하지 않은 그림이 있어요.", isPresented: $confirmingWithoutSketch,
+                            titleVisibility: .visible) {
+            Button("그림 이어 그리기", action: openDrawing)
+            Button("그림 없이 확정", role: .destructive, action: confirm)
+        } message: {
+            Text("그림을 남기려면 캔버스에서 첨부해 주세요.")
+        }
+    }
+
     private func confirm() {
+        guard !importingPhotos else { return }
         do {
             try store.confirm(draft.resolvedEntry())
             dismiss()
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    private func openDrawing() {
+        let drawingID = draft.drawingID ?? UUID()
+        var next = draft
+        next.drawingID = drawingID
+        do {
+            try store.update { $0.keepDraft(next) }
+            draft = next
+            presentedDrawing = PresentedDrawing(id: drawingID)
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func appendAttachment(_ data: Data, kind: JournalAttachment.Kind) throws {
+        let attachment = JournalAttachment(kind: kind)
+        try store.media.write(data, for: attachment)
+        var next = draft
+        next.entry.attachments.append(attachment)
+        if kind == .drawing { next.drawingID = nil }
+        try store.update { $0.keepDraft(next) }
+        draft = next
+    }
+
+    private func removeAttachment(_ attachment: JournalAttachment) throws {
+        var next = draft
+        next.entry.attachments.removeAll { $0.id == attachment.id }
+        try store.update { $0.keepDraft(next) }
+        draft = next
+    }
+
+    @MainActor private func importPhotos(_ selection: [PhotosPickerItem]) async {
+        guard !selection.isEmpty else { return }
+        processedPhotos = 0
+        var unreadable = 0
+        for item in selection {
+            guard !Task.isCancelled, selectedPhotos == selection else { return }
+            let photo: JournalPickerPhoto
+            do {
+                guard let imported = try await item.loadTransferable(type: JournalPickerPhoto.self)
+                else { throw CocoaError(.fileReadCorruptFile) }
+                photo = imported
+            } catch {
+                if Task.isCancelled || selectedPhotos != selection { return }
+                unreadable += 1
+                processedPhotos += 1
+                continue
+            }
+            guard !Task.isCancelled, selectedPhotos == selection else { return }
+            do { try appendAttachment(photo.data, kind: .photo) }
+            catch {
+                selectedPhotos = []
+                self.error = error.localizedDescription
+                return
+            }
+            processedPhotos += 1
+        }
+        selectedPhotos = []
+        if unreadable > 0 {
+            error = "선택한 사진 \(selection.count)장 중 \(unreadable)장을 불러올 수 없었어요. 사진 앱에서 열리는지 확인하고 다시 선택해 주세요."
         }
     }
 }

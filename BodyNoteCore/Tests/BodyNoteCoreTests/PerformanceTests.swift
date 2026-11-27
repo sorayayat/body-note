@@ -235,7 +235,7 @@ final class PerformanceTests: XCTestCase {
         try book.reuseLegacySkillTarget(for: current)
         try file.save(book)
         let document = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file.url)) as? [String: Any])
-        XCTAssertEqual(document["version"] as? Int, 3)
+        XCTAssertEqual(document["version"] as? Int, 4)
         book = try file.load()
         XCTAssertNil(book.legacySkillTarget(for: current))
         XCTAssertNil(book.skillTargetInput(for: original))

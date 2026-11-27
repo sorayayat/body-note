@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class WorkoutJournalUITests: XCTestCase {
     override func setUpWithError() throws {
@@ -271,6 +272,140 @@ final class WorkoutJournalUITests: XCTestCase {
     }
 
     @MainActor
+    func testIPadDrawingSurvivesRelaunchAndAttachesToJournal() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "그림 작성은 iPad에서 확인합니다.")
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+
+        let app = launchSession()
+        let record = app.buttons["workout.record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+        let rest = app.segmentedControls.buttons["휴식"]
+        XCTAssertTrue(rest.waitForExistence(timeout: 8))
+        rest.tap()
+        let draw = app.buttons["journal.attachment.draw"]
+        reveal(draw, in: app, swipingUp: true)
+        draw.tap()
+        let paper = app.descendants(matching: .any)["journal.drawing.canvas"].firstMatch
+        let attach = app.buttons["journal.drawing.attach"]
+        XCTAssertTrue(paper.waitForExistence(timeout: 8))
+        XCTAssertFalse(attach.isEnabled)
+        let start = paper.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.35))
+        let end = paper.coordinate(withNormalizedOffset: CGVector(dx: 0.70, dy: 0.60))
+        start.press(forDuration: 0.15, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        let ink = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: attach)
+        XCTAssertEqual(XCTWaiter.wait(for: [ink], timeout: 8), .completed)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(paper.isHittable)
+        XCTAssertTrue(attach.isEnabled)
+        app.terminate()
+        app.launch()
+
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+        reveal(draw, in: app, swipingUp: true)
+        draw.tap()
+        XCTAssertTrue(paper.waitForExistence(timeout: 8))
+        XCTAssertTrue(attach.isEnabled, "재실행 후 새 획을 그리지 않아도 이전 그림을 첨부할 수 있어야 합니다.")
+        attach.tap()
+        let thumbnail = app.buttons["journal.attachment.thumbnail.drawing"].firstMatch
+        XCTAssertTrue(thumbnail.waitForExistence(timeout: 8))
+        let confirm = app.buttons["workout.confirm"]
+        reveal(confirm, in: app, swipingUp: true)
+        confirm.tap()
+        openJournalEntry("휴식 기록", in: app)
+        reveal(thumbnail, in: app, swipingUp: true)
+        thumbnail.tap()
+        XCTAssertTrue(app.navigationBars["그림 보기"].waitForExistence(timeout: 8))
+        let image = app.images["journal.attachment.image"].firstMatch
+        XCTAssertTrue(image.waitForExistence(timeout: 8))
+        XCTAssertTrue(hasCentralInk(image.screenshot()), "저장한 이미지 중앙에 그린 펜 자국이 보여야 합니다.")
+    }
+
+    @MainActor
+    func testPhotoPickerAttachesAnImageToJournal() {
+        let app = launchSession()
+        let record = app.buttons["workout.record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+        let name = app.textFields["exercise.name"]
+        reveal(name, in: app, swipingUp: true)
+        name.tap()
+        name.typeText("Photo Row")
+        assertValue("Photo Row", in: name)
+        let choose = app.buttons["journal.attachment.photo"]
+        reveal(choose, in: app, swipingUp: true)
+        choose.tap()
+
+        // simctl adds a real image to Photos before this run. The picker can present
+        // asset descriptions in English even when the app runs in Korean.
+        let assetLabel = NSPredicate(format:
+            "label CONTAINS[c] %@ OR label BEGINSWITH[c] %@ OR label BEGINSWITH %@",
+            "WorkoutLogAttachmentFixture", "Photo,", "사진,")
+        let asset = app.descendants(matching: .any).matching(assetLabel).firstMatch
+        if asset.waitForExistence(timeout: 8) {
+            asset.tap()
+        } else {
+            let gridAsset = app.collectionViews["PhotosGridView"].cells.firstMatch
+            XCTAssertTrue(gridAsset.waitForExistence(timeout: 5), "시스템 사진 선택기에 테스트 사진이 있어야 합니다.")
+            gridAsset.tap()
+        }
+        let add = app.buttons.matching(NSPredicate(format:
+            "label BEGINSWITH[c] %@ OR label BEGINSWITH %@ OR label IN %@",
+            "Add", "추가", ["Done", "완료"])).firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 8))
+        XCTAssertTrue(add.isEnabled)
+        add.tap()
+        let thumbnail = app.buttons["journal.attachment.thumbnail.photo"].firstMatch
+        XCTAssertTrue(thumbnail.waitForExistence(timeout: 15))
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+        reveal(thumbnail, in: app, swipingUp: true)
+        let confirm = app.buttons["workout.confirm"]
+        reveal(confirm, in: app, swipingUp: true)
+        confirm.tap()
+        openJournalEntry("Photo Row", in: app)
+        reveal(thumbnail, in: app, swipingUp: true)
+        thumbnail.tap()
+        XCTAssertTrue(app.navigationBars["사진 보기"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.images["journal.attachment.image"].firstMatch.waitForExistence(timeout: 8))
+    }
+
+    /// The black test stroke crosses the center of an otherwise white page.
+    @MainActor
+    private func hasCentralInk(_ screenshot: XCUIScreenshot) -> Bool {
+        guard let image = screenshot.image.cgImage else { return false }
+        let size = 384
+        var pixels = [UInt8](repeating: 255, count: size * size)
+        let rendered = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: size, height: size,
+                bitsPerComponent: 8, bytesPerRow: size, space: CGColorSpaceCreateDeviceGray(),
+                bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: CGFloat(size), height: CGFloat(size)))
+            return true
+        }
+        guard rendered else { return false }
+        let center = (size / 4)..<(3 * size / 4)
+        return center.contains { y in center.contains { x in pixels[y * size + x] < 180 } }
+    }
+
+    @MainActor
+    private func openJournalEntry(_ title: String, in app: XCUIApplication,
+                                  file: StaticString = #filePath, line: UInt = #line) {
+        let journal = app.buttons["일지"]
+        let canOpen = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: journal)
+        XCTAssertEqual(XCTWaiter.wait(for: [canOpen], timeout: 10), .completed, file: file, line: line)
+        journal.tap()
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 8), file: file, line: line)
+        row.tap()
+        XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 8), file: file, line: line)
+    }
+
+    @MainActor
     private func assertValue(_ expected: String, in field: XCUIElement,
                              file: StaticString = #filePath, line: UInt = #line) {
         let completeValue = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected),
@@ -302,7 +437,8 @@ final class WorkoutJournalUITests: XCTestCase {
         let origin = app.coordinate(withNormalizedOffset: .zero)
         let keyboard = app.keyboards.firstMatch
         for _ in 0..<14 {
-            let navBottom = app.navigationBars.allElementsBoundByIndex.map { $0.frame.maxY }.max() ?? screen.minY
+            let bars = app.navigationBars.allElementsBoundByIndex
+            let navBottom = bars.map { $0.frame.maxY }.max() ?? screen.minY
             let top = max(screen.minY + 48, navBottom) + 10
             let keyboardFrame = keyboard.exists ? keyboard.frame : .zero
             let keyboardTop = keyboardFrame.isEmpty ? screen.maxY : keyboardFrame.minY
@@ -320,7 +456,14 @@ final class WorkoutJournalUITests: XCTestCase {
                 let displacement = target - center
                 distance = (displacement >= 0 ? 1 : -1) * min(max(abs(displacement), 75), maximumDrag)
             }
-            let x = screen.width * 0.14
+            let x: CGFloat
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                // A centered iPad sheet can leave the left side of the window outside the form.
+                let bar = bars.last { !$0.frame.isEmpty && $0.isHittable }
+                x = bar.map { $0.frame.minX - screen.minX + $0.frame.width * 0.14 } ?? screen.width * 0.55
+            } else {
+                x = screen.width * 0.14
+            }
             let start = origin.withOffset(CGVector(dx: x, dy: center + distance / 2 - screen.minY))
             let end = origin.withOffset(CGVector(dx: x, dy: center - distance / 2 - screen.minY))
             start.press(forDuration: 0.04, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)

@@ -7,22 +7,31 @@ permissions:
 
 jobs:
   build:
+    name: ${{ matrix.family }} build and UI tests
     runs-on: macos-26
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { family: iPhone, artifact: WorkoutLog-iOS-Simulator-arm64 }
+          - { family: iPad, artifact: WorkoutLog-iPadOS-Simulator-arm64 }
     steps:
       - uses: actions/checkout@v4
       - name: Test notebook, tracking and coaching
+        if: matrix.family == 'iPhone'
         run: swift test --package-path BodyNoteCore
-      - name: Build for iPhone and test on a simulator
+      - name: Build and test on the ${{ matrix.family }} simulator
         run: bash Scripts/test-ios-beta.sh
         env:
+          WORKOUT_SIM_FAMILY: ${{ matrix.family }}
           WORKOUT_UI_RESULT_PATH: ${{ runner.temp }}/WorkoutLog.xcresult
-          WORKOUT_SIMULATOR_ZIP_PATH: ${{ runner.temp }}/WorkoutLog-iOS-Simulator-arm64.zip
+          WORKOUT_SIMULATOR_ZIP_PATH: ${{ runner.temp }}/${{ matrix.artifact }}.zip
       - name: Publish the tested Apple Silicon simulator app
         uses: actions/upload-artifact@v4
         with:
-          name: WorkoutLog-iOS-Simulator-arm64
-          path: ${{ runner.temp }}/WorkoutLog-iOS-Simulator-arm64.zip
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.temp }}/${{ matrix.artifact }}.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
@@ -30,7 +39,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: WorkoutLog-UI-failure
+          name: WorkoutLog-${{ matrix.family }}-UI-failure
           path: ${{ runner.temp }}/WorkoutLog.xcresult
           if-no-files-found: ignore
           retention-days: 7

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import BodyNoteCore
 
 @main
@@ -6,7 +7,6 @@ import BodyNoteCore
 struct BodyNoteApp: App {
     @Environment(\.scenePhase) private var phase
     @StateObject private var store = JournalStore()
-    @State private var tab = HomeTab.today
 
     var body: some Scene {
         WindowGroup {
@@ -20,30 +20,7 @@ struct BodyNoteApp: App {
                         Button("다시 열기") { store.reload() }
                     }
                 } else {
-                    VStack(spacing: 0) {
-                        TabView(selection: $tab) {
-                            NavigationStack { TodayView() }.tag(HomeTab.today).toolbar(.hidden, for: .tabBar)
-                            NavigationStack { JournalView() }.tag(HomeTab.journal).toolbar(.hidden, for: .tabBar)
-                            NavigationStack { CoachView() }.tag(HomeTab.coach).toolbar(.hidden, for: .tabBar)
-                        }
-                        HStack(spacing: 8) {
-                            ForEach(HomeTab.allCases, id: \.self) { item in
-                                Button { tab = item } label: {
-                                    VStack(spacing: 3) {
-                                        Image(systemName: item.symbol).font(.title3)
-                                        Text(item.rawValue).font(.caption.weight(.semibold))
-                                    }
-                                    .frame(maxWidth: .infinity, minHeight: 47)
-                                    .foregroundStyle(tab == item ? TrackColor.green : Color.secondary)
-                                    .background(tab == item ? TrackColor.gray : .clear, in: RoundedRectangle(cornerRadius: 14))
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain).accessibilityAddTraits(tab == item ? .isSelected : [])
-                            }
-                        }
-                        .padding(.horizontal, 12).padding(.vertical, 4)
-                        .background(TrackColor.cream).overlay(alignment: .top) { Divider() }
-                    }
+                    HomeNavigation()
                     .safeAreaInset(edge: .top, spacing: 0) {
                         if let problem = store.inputSaveProblem {
                             VStack(alignment: .leading, spacing: 4) {
@@ -83,6 +60,66 @@ struct BodyNoteApp: App {
     }
 }
 
+private struct HomeNavigation: View {
+    @State private var tab = HomeTab.today
+
+    var body: some View {
+        GeometryReader { window in
+            let sidebar = UIDevice.current.userInterfaceIdiom == .pad && window.size.width >= 820
+            HStack(spacing: 0) {
+                if sidebar {
+                    VStack(alignment: .leading, spacing: 6) {
+                        tabButtons(sidebar: true)
+                        Spacer()
+                    }
+                    .padding(12).frame(width: 180)
+                    .frame(maxHeight: .infinity)
+                    .background(TrackColor.cream)
+                    Divider()
+                }
+                VStack(spacing: 0) {
+                    TabView(selection: $tab) {
+                        NavigationStack { TodayView() }.tag(HomeTab.today).toolbar(.hidden, for: .tabBar)
+                        NavigationStack { JournalView() }.tag(HomeTab.journal).toolbar(.hidden, for: .tabBar)
+                        NavigationStack { CoachView() }.tag(HomeTab.coach).toolbar(.hidden, for: .tabBar)
+                    }
+                    if !sidebar {
+                        HStack(spacing: 8) { tabButtons(sidebar: false) }
+                            .padding(.horizontal, 12).padding(.vertical, 4)
+                            .background(TrackColor.cream).overlay(alignment: .top) { Divider() }
+                    }
+                }
+            }
+        }
+    }
+
+    private func tabButtons(sidebar: Bool) -> some View {
+        ForEach(HomeTab.allCases, id: \.self) { item in
+            Button { tab = item } label: {
+                Group {
+                    if sidebar {
+                        Label(item.rawValue, systemImage: item.symbol)
+                            .font(.headline)
+                            .padding(.horizontal, 12)
+                    } else {
+                        VStack(spacing: 3) {
+                            Image(systemName: item.symbol).font(.title3)
+                            Text(item.rawValue).font(.caption.weight(.semibold))
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 47, alignment: sidebar ? .leading : .center)
+                .foregroundStyle(tab == item ? TrackColor.green : Color.secondary)
+                .background(tab == item ? TrackColor.gray : .clear, in: RoundedRectangle(cornerRadius: 14))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.rawValue)
+            .accessibilityAddTraits(tab == item ? .isSelected : [])
+        }
+    }
+}
+
 private enum HomeTab: String, CaseIterable {
     case today = "오늘", journal = "일지", coach = "코치"
 
@@ -115,6 +152,7 @@ final class JournalStore: ObservableObject {
     private var updatingReminders = false
     private let topics: any CoachTopicChoosing
     private let repository: any NotebookRepository
+    let media: JournalAttachmentStore
 
     init(topics: any CoachTopicChoosing = DeviceCoachTopics(), repository: (any NotebookRepository)? = nil) {
         self.topics = topics
@@ -126,7 +164,9 @@ final class JournalStore: ObservableObject {
             url = directory.appendingPathComponent("WorkoutLogUITests/\(id.uuidString)/journal.json")
         }
         #endif
-        self.repository = repository ?? NotebookFile(url: url)
+        let file = repository as? NotebookFile ?? NotebookFile(url: url)
+        self.repository = repository ?? file
+        self.media = file.media
         reload()
     }
 

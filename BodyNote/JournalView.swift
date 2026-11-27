@@ -111,6 +111,9 @@ struct EntryDetail: View {
                         if !entry.note.isEmpty { Text(entry.note) }
                     }
                 }
+                if !entry.attachments.isEmpty {
+                    Section("첨부") { JournalAttachmentGrid(attachments: entry.attachments) }
+                }
                 if entry.day < JournalDay() || !entry.followUp.isEmpty {
                     Section("다음 날 몸 상태") {
                         if !entry.followUp.isEmpty { Text(entry.followUp) }
