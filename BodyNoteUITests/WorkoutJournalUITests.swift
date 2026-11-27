@@ -338,12 +338,12 @@ final class WorkoutJournalUITests: XCTestCase {
         reveal(choose, in: app, swipingUp: true)
         choose.tap()
 
-        // simctl adds a real image to Photos before this run. The picker can present
-        // asset descriptions in English even when the app runs in Korean.
+        // The picker repeats the thumbnails' labels on their non-interactive group.
+        // The seeded image is the most recent asset, in either system language.
         let assetLabel = NSPredicate(format:
             "label CONTAINS[c] %@ OR label BEGINSWITH[c] %@ OR label BEGINSWITH %@",
             "WorkoutLogAttachmentFixture", "Photo,", "사진,")
-        let asset = app.descendants(matching: .any).matching(assetLabel).firstMatch
+        let asset = app.images.matching(assetLabel).firstMatch
         if asset.waitForExistence(timeout: 8) {
             asset.tap()
         } else {
@@ -355,7 +355,8 @@ final class WorkoutJournalUITests: XCTestCase {
             "label BEGINSWITH[c] %@ OR label BEGINSWITH %@ OR label IN %@",
             "Add", "추가", ["Done", "완료"])).firstMatch
         XCTAssertTrue(add.waitForExistence(timeout: 8))
-        XCTAssertTrue(add.isEnabled)
+        let selectionReady = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: add)
+        XCTAssertEqual(XCTWaiter.wait(for: [selectionReady], timeout: 8), .completed)
         add.tap()
         let thumbnail = app.buttons["journal.attachment.thumbnail.photo"].firstMatch
         XCTAssertTrue(thumbnail.waitForExistence(timeout: 15))
