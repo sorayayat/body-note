@@ -36,6 +36,9 @@ if not phones:
 print(max(phones)[2])
 ')
 
+# Wait for SpringBoard and the simulator services before XCTest launches the app.
+xcrun simctl bootstatus "$simulator" -b
+
 result_path=${WORKOUT_UI_RESULT_PATH:-"$(mktemp -d)/WorkoutLog.xcresult"}
 test_args=(-configuration Debug -destination "platform=iOS Simulator,id=$simulator,arch=$(uname -m)"
   -parallel-testing-enabled NO -resultBundlePath "$result_path")
