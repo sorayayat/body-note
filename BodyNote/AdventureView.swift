@@ -11,8 +11,11 @@ struct AdventureView: View {
         List {
             TrainingScene(book: book).listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
             TrainingProgress(book: book).listRowBackground(TrackColor.cream)
-            GrowthBoard()
-            Section("기초 훈련장 마일스톤") {
+            Section {
+                AthleteLockerLink()
+                TrainingGrowthLink()
+            }
+            Section("훈련장 마일스톤") {
                 milestone("첫 훈련 도장", detail: "재활·훈련 첫 기록", reached: book.activeDayCount >= 1)
                 milestone("콘 코스 개방", detail: "서로 다른 3일 기록", reached: book.activeDayCount >= 3)
                 milestone("매트 구역 개방", detail: "누적 6일 기록과 한 줄 회고", reached: book.hasMatArea)
@@ -36,7 +39,10 @@ struct AdventureView: View {
                 Button { goalOpen = true } label: { Label("목표 만들기", systemImage: "plus") }
             }
         }
-        .navigationTitle("모험")
+        .scrollContentBackground(.hidden).background(TrackColor.cream)
+        .navigationTitle("기초 훈련장")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
         .sheet(isPresented: $reflectionOpen) {
             NoteSheet("한 줄 회고", key: "reflection", initial: book.reflection) { notebook, value in
                 try notebook.saveReflection(value)

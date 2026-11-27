@@ -1,6 +1,20 @@
 import SwiftUI
 import BodyNoteCore
 
+struct TrainingGrowthLink: View {
+    var body: some View {
+        NavigationLink {
+            List { GrowthBoard() }
+                .navigationTitle("훈련 기록판").navigationBarTitleDisplayMode(.inline)
+                .toolbar(.visible, for: .navigationBar)
+        } label: {
+            Label("훈련 기록판 보기", systemImage: "chart.bar")
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityIdentifier("training.growth")
+    }
+}
+
 struct GrowthBoard: View {
     @EnvironmentObject private var store: JournalStore
     @State private var goalReading: PerformanceReading?
@@ -8,7 +22,7 @@ struct GrowthBoard: View {
     var body: some View {
         let book = store.book
         let cards = book.growthBoard
-        Section("기초 훈련장 기록판") {
+        Section("같은 조건의 운동 변화") {
             if cards.isEmpty {
                 Text("같은 운동의 마지막 세트 횟수를 비교해요. 여러 세트라면 세트 간 휴식 시간도 입력해 주세요.")
                     .font(.subheadline).foregroundStyle(.secondary)

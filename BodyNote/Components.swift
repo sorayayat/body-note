@@ -27,9 +27,10 @@ extension View {
 struct RecordPortrait: View {
     let athlete: Athlete
     var size: CGFloat = 48
+    var motion: TrainingMotion? = nil
 
     var body: some View {
-        AthleteImage(animal: athlete.animal, sport: athlete.sport)
+        AthletePlayer(athlete: athlete, motion: motion ?? .idle, isPlaying: motion != nil)
             .padding(3).frame(width: size, height: size)
             .background(TrackColor.cream, in: RoundedRectangle(cornerRadius: 10))
             .accessibilityHidden(true)

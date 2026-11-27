@@ -58,15 +58,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 #screen p { line-height: 1.5; }
 .app-head, .app-head b, .app-head > span { display: flex; align-items: center; }
 .app-head { justify-content: space-between; min-height: 37px; color: var(--green); }
+.app-head > span { gap: 3px; }
+.locker-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 5px 8px;
+  border: 1px solid #bccbbf; border-radius: 10px; background: transparent; color: var(--green); font-size: 12px; font-weight: 700; }
+.locker-link canvas { width: 19px; height: 19px; }
 .app-head b { gap: 6px; font-weight: 750; letter-spacing: -.035em; font-size: 17px; }
 .app-head b canvas { width: 28px; height: 28px; }
-.icon-button { position: relative; border: 0; background: transparent; color: inherit; display: inline-grid; place-items: center; padding: 4px; min-width: 34px; min-height: 34px; }
+.icon-button { position: relative; border: 0; background: transparent; color: inherit; display: inline-grid; place-items: center; padding: 4px; min-width: 44px; min-height: 44px; }
 .icon-button canvas { width: 23px; height: 23px; }
 .unread { position: absolute; width: 6px; height: 6px; border-radius: 50%; right: 4px; top: 4px; background: #f85c40; }
 #screen .today-title { font-size: 36px; letter-spacing: -.06em; margin: 7px 0 4px; color: var(--green); }
 #screen .intro { font-size: 14px; color: var(--muted); margin: 0 0 9px; line-height: 1.35; font-weight: 550; }
 .hero { position: relative; overflow: hidden; aspect-ratio: 542 / 403; border-radius: 12px; background: #b65a44; }
-.home-screen .hero { width: calc(100% + 26px); margin-inline: -13px; }
 .scene-art { position: absolute; top: 50%; transform: translateY(-50%); width: 100%; aspect-ratio: 542 / 403; }
 .track { display: block; width: 100%; height: 100%; }
 .field-player { position: absolute; left: 14%; top: 26%; width: 40%; height: 58%; display: grid; place-items: center; }
@@ -91,7 +94,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .motion-player[data-motion="ready"] { --movement: crouch; --period: 1.2s; }
   .motion-player[data-motion="run"] { --movement: stride; --frames: stride-frames; --period: .5s; }
   .motion-player[data-motion="levelUp"] { --movement: victory-jump; --frames: jump-frames; --period: 1.25s; }
-  .field-player.playing .motion-player, .motion-list [aria-pressed="true"] .motion-player {
+  .field-player.playing .motion-player, .motion-list [aria-pressed="true"] .motion-player,
+  .ground-shortcut .record-portrait > .motion-player {
     animation: var(--movement) var(--period) ease-in-out infinite,
                var(--frames, none) var(--period) steps(1, end) infinite;
   }
@@ -134,10 +138,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .record-look .record-portrait { width: 78px; height: 78px; }
 .record-look .field { flex: 1; min-width: 0; }
 .record-look p { margin: 3px 0; }
-.ground-name { display: flex; align-items: center; gap: 9px; margin: 12px 0 10px; }
-.ground-name img { width: 55px; height: auto; border-radius: 15%; }
-#screen .ground-name h3 { margin: 0; font-size: 22px; }
-#screen .ground-name p { margin: 2px 0 0; font-size: 11.5px; color: var(--muted); word-break: keep-all; }
+.ground-title { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; }
+.ground-title img { width: 44px; height: 38px; object-fit: contain; }
+#screen .ground-title h2 { margin: 0; }
+.ground-screen .xp-card { margin: 10px 0; }
+.ground-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.locker-preview-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.locker-preview-label span { color: var(--muted); font-size: 12px; }
 .xp-card { border: 1px solid var(--line); border-radius: 11px; background: #fff6e9; padding: 9px 11px; box-shadow: 0 1px 3px #493e2510; }
 .spread { display: flex; gap: 6px; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
 .xp { font-size: 16px; font-weight: 750; font-variant-numeric: tabular-nums; }
@@ -147,8 +154,6 @@ progress::-webkit-progress-bar { background: var(--gray); border-radius: 8px; }
 progress::-webkit-progress-value { background: var(--green); border-radius: 8px; }
 .sport-heading { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
 #screen .sport-heading h3 { margin: 0; }
-.sport-heading .icon-button { color: var(--muted); }
-.sport-heading canvas { width: 20px; height: 20px; }
 .outfit-strip { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; padding-top: 4px; }
 .outfit { border: 0; background: none; padding: 0; min-width: 0; text-align: center; }
 .outfit-tile { display: grid; place-items: center; position: relative; width: 100%; aspect-ratio: .97;
@@ -181,7 +186,7 @@ progress::-webkit-progress-value { background: var(--green); border-radius: 8px;
 .controls h2 { display: flex; align-items: center; gap: 8px; color: #fff7e9; font-size: 14px; margin: 0 0 10px; }
 .controls h2::after { content: ''; flex: 1; height: 1px; background: #c9c7b37a; }
 .species-list { display: grid; gap: 5px; grid-template-columns: repeat(4,1fr); }
-.controls button { background: #ffffff05; border: 1px solid transparent; border-radius: 10px; }
+.controls button { min-height: 44px; background: #ffffff05; border: 1px solid transparent; border-radius: 10px; }
 .controls button:hover { background: #fff5df20; }
 .controls button[aria-pressed=true] { background: #f4e7c921; border-color: #cecfaa; }
 .species-list button { display: grid; place-items: center; padding: 6px 2px; }
@@ -265,13 +270,13 @@ textarea { min-height: 58px; resize: vertical; }
 .tracking-panel .muted { margin: 6px 0 0; }
 .recovery-cue { margin: 9px 0; padding: 12px 14px; border-left: 3px solid var(--track); background: #fff0dd; border-radius: 6px 12px 12px 6px; }
 .recovery-cue .muted { margin: 5px 0 0; }
-#training-ground { margin-top: 14px; border-block: 1px solid var(--line); }
-#training-ground > summary { list-style: none; display: flex; align-items: center; min-height: 48px; gap: 8px; font-size: 15px; font-weight: 700; cursor: pointer; }
-#training-ground > summary::-webkit-details-marker { display: none; }
-#training-ground > summary::after { content: "⌄"; margin-left: auto; font-weight: 700; }
-#training-ground[open] > summary::after { transform: rotate(180deg); }
-#training-ground > summary .record-portrait { width: 32px; height: 32px; }
-#training-ground[open] { padding-bottom: 12px; }
+#screen:is(.home-screen,.ground-screen,.locker-screen) button { min-height: 44px; }
+.ground-shortcut { margin: 13px 0 0; padding: 11px; gap: 12px; border: 1px solid #d4dccf;
+  border-radius: 14px; background: #f1f2e6; }
+.ground-shortcut .record-portrait { width: 60px; height: 60px; background: var(--paper); }
+.ground-shortcut .row-text strong { font-size: 16px; }
+.ground-shortcut .row-text b { color: var(--green); font-size: 13px; font-variant-numeric: tabular-nums; }
+.ground-shortcut .arrow { margin-left: auto; }
 .coach-turn { margin: 13px 0; display: grid; gap: 7px; overflow-wrap: anywhere; }
 .draft-row small { white-space: pre-wrap; overflow-wrap: anywhere; }
 .coach-turn > strong { justify-self: end; padding: 9px 13px; border-radius: 13px 13px 3px 13px; background: #dfeadb; font-size: 14px; }
@@ -283,7 +288,6 @@ textarea { min-height: 58px; resize: vertical; }
 .coach-composer .primary { min-height: 42px; }
 #coach-input { width: 100%; min-height: 42px; max-height: 18dvh; resize: vertical; }
 @media(max-height:825px) {
-  .home-screen .hero { max-height: clamp(150px,calc(100dvh - 575px),245px); }
   #screen .today-title { margin-top: 2px; font-size: 32px; }
   .sport-heading { margin-top: 4px; }
 }

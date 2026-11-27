@@ -34,6 +34,13 @@ enum TrainingMotion: String, CaseIterable {
     }
 }
 
+extension JournalStore.Receipt {
+    var rewardMotion: TrainingMotion? {
+        if didLevelUp { return .levelUp }
+        return addedXP ? .run : nil
+    }
+}
+
 private struct MotionBeat: Equatable {
     let seconds: Double
     var x: CGFloat = 0
@@ -201,8 +208,7 @@ struct TrainingScene: View {
     }
 
     private func currentMotion(resting: Bool) -> TrainingMotion {
-        if store.receipt?.didLevelUp == true { return .levelUp }
-        if store.receipt?.addedXP == true { return .run }
+        if let reward = store.receipt?.rewardMotion { return reward }
         if selectionEvent != nil { return .ready }
         return resting ? .idle : .stretch
     }
@@ -212,27 +218,24 @@ struct TrainingProgress: View {
     let book: Notebook
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            HStack(spacing: 12) {
-                Image("TrackBadge").resizable().scaledToFit().frame(width: 58)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("기초 훈련장").font(.title2.bold())
-                    Text("기본기를 다지고, 꾸준히 몸을 회복하는 첫 훈련장!")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
+        HStack(spacing: 12) {
+            Image("TrackBadge").resizable().scaledToFit().frame(width: 48)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 6) {
                 ViewThatFits(in: .horizontal) {
-                    HStack { levelText; Spacer(); nextText }
+                    HStack {
+                        levelText.fixedSize()
+                        Spacer()
+                        nextText.fixedSize()
+                    }
                     VStack(alignment: .leading) { levelText; nextText }
                 }
                 ProgressView(value: Double(book.levelXP), total: Double(Notebook.xpPerLevel))
                     .tint(TrackColor.green)
+                    .accessibilityLabel("레벨 진행률")
             }
-            .padding(11).background(TrackColor.cream, in: RoundedRectangle(cornerRadius: 12))
-            .overlay { RoundedRectangle(cornerRadius: 12).stroke(.black.opacity(0.1)) }
         }
+        .padding(.vertical, 4)
     }
 
     private var levelText: some View { Text("Lv. \(book.level) · \(book.xp) XP").font(.headline.bold()) }

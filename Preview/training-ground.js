@@ -9,7 +9,6 @@ const assetRoot = "../BodyNote/Assets.xcassets/";
 const xpPerLevel = 100;
 const motions = { idle:"대기", stretch:"스트레칭", ready:"준비", run:"달리기", levelUp:"성장" };
 let fieldMotion = null;
-let previewMotion = "stretch";
 let motionTimer;
 let levelReward = false;
 
@@ -20,6 +19,8 @@ function showMotion(value, duration, reward = false) {
   const redraw = () => {
     const ground = $(".hero:not([data-preview])");
     if (ground) ground.outerHTML = scene();
+    const portrait = $(".ground-shortcut .record-portrait");
+    if (portrait) portrait.outerHTML = groundPortrait(fieldAthlete());
   };
   redraw();
   motionTimer = setTimeout(() => {
@@ -42,17 +43,26 @@ function recordAppearance(entry, fallback = athlete()) {
   return { animal: fallback.animal, sport: skin };
 }
 
-function recordPortrait(a) {
-  return `<span class="record-portrait" data-animal="${a.animal}" data-skin="${a.sport}" aria-hidden="true">${sprite(a.animal, a.sport)}</span>`;
+function recordPortrait(a, motion) {
+  return `<span class="record-portrait" data-animal="${a.animal}" data-skin="${a.sport}" aria-hidden="true">${motion ? motionPlayer(a.animal,a.sport,motion) : sprite(a.animal,a.sport)}</span>`;
 }
-function setKit(animal, sport) {
+function fieldAthlete(recent = latest().find(entry=>entry.kind!=="rest")) {
+  return recent ? recordAppearance(recent) : athlete();
+}
+function groundPortrait(a) {
+  const animate = (fieldMotion==="run" || fieldMotion==="levelUp") && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return recordPortrait(a,animate ? fieldMotion : null);
+}
+function setKit(animal, sport, control) {
   if (!Object.hasOwn(animals, animal) || !Object.hasOwn(sports, sport)) return;
   const next = structuredClone(book);
   next.athlete = { animal, sport };
   if (!save(next)) return false;
+  const position = trainingControlPosition(control);
   if (!book.entries.some((entry) => entry.kind !== "rest")) showMotion("ready",850);
   if (["today","profile","adventure","coach"].includes(page().view)) render();
   else renderLocker();
+  restoreTrainingPosition(position);
   return true;
 }
 function sprite(animal, sport) {
@@ -71,26 +81,29 @@ function motionPlayer(animal, sport, motion) {
 }
 function motionChoices() {
   const a = athlete();
+  const selected = page().view==="profile" ? lockerMotion() : null;
   return Object.entries(motions).map(([value,title]) =>
-    `<button data-action="motion" data-value="${value}" aria-pressed="${previewMotion===value}">${motionPlayer(a.animal,a.sport,value)}<b>${title}</b></button>`).join("");
+    `<button data-action="motion" data-value="${value}" aria-pressed="${selected===value}">${motionPlayer(a.animal,a.sport,value)}<b>${title}</b></button>`).join("");
 }
-function playPreview(motion) {
+function lockerMotion() {
+  return Object.hasOwn(motions,page().motion) ? page().motion : "stretch";
+}
+function focusLockerPreview() {
+  const screen = $("#screen"), title = $("#locker-preview-title");
+  window.scrollTo(0,0);
+  screen.scrollTop += title.getBoundingClientRect().top-screen.getBoundingClientRect().top-8;
+  title.focus({preventScroll:true});
+}
+function playPreview(motion, control) {
   if (!Object.hasOwn(motions, motion)) return;
-  previewMotion = motion;
+  if (page().view!=="profile") { go("profile",{motion},control); return; }
+  page().motion = motion;
+  saveRoute(true);
   document.querySelectorAll('.motion-list [data-action="motion"]').forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.value === motion));
   });
-  const ground = $(".hero");
-  if (!ground) return;
-  if (ground.hasAttribute("data-preview")) {
-    ground.outerHTML = scene(motion);
-  } else {
-    clearTimeout(motionTimer);
-    fieldMotion = null;
-    levelReward = false;
-    page().playsPreview = true;
-    ground.outerHTML = scene();
-  }
+  $("#screen .hero[data-preview]").outerHTML = scene(motion);
+  if (control.closest(".controls")) focusLockerPreview();
 }
 function canvasIcon(name) { return `<canvas data-icon="${name}" aria-hidden="true"></canvas>`; }
 
@@ -121,7 +134,7 @@ function scene(preview = null) {
   const recent = preview ? null : latest().find((entry) => entry.kind !== "rest");
   const a = recent ? recordAppearance(recent) : athlete(), s = stats();
   const resting = book.entries.some((e) => e.kind === "rest" && e.day === dayKey());
-  const playback = preview || fieldMotion || (page().playsPreview ? previewMotion : null);
+  const playback = preview || fieldMotion;
   const motion = playback || (resting ? "idle" : "stretch");
   const stamps = Array.from({length: Math.min(5,s.days)}, (_,i) =>
     `<i class="stamp" style="left:${67.1+i*5.65}%">✓</i>`).join("");
@@ -135,9 +148,7 @@ function scene(preview = null) {
 }
 function progressPanel() {
   const s = stats(), within = s.xp % xpPerLevel;
-  return `<div class="ground-name"><img src="${assetRoot}TrackBadge.imageset/art.png" alt="">
-    <div><h3>기초 훈련장</h3><p>기본기를 다지고, 꾸준히 몸을 회복하는 첫 훈련장!</p></div></div>
-    <div class="xp-card"><div class="spread"><b class="xp">Lv. ${s.level} · ${s.xp} XP</b>
+  return `<div class="xp-card"><div class="spread"><b class="xp">Lv. ${s.level} · ${s.xp} XP</b>
     <small>다음 레벨까지 ${xpPerLevel-within} XP</small></div>
     <progress aria-label="다음 레벨 진행도" value="${within}" max="${xpPerLevel}"></progress></div>`;
 }
@@ -152,34 +163,37 @@ function outfitCard(animal, sport, forAnimal = false) {
 }
 
 function trainingHome() {
-  const a = athlete();
+  const recent = latest().find(entry=>entry.kind!=="rest"), player = fieldAthlete(recent);
+  const s = stats();
   const routine = findRoutine(book, book.defaultRoutineID);
-  const unread = book.lastReadTrainingDays !== stats().days;
+  const unread = book.lastReadTrainingDays !== s.days;
   return `<header class="app-head"><b>${canvasIcon("dumbbell")}운동일지</b><span>
     <button class="icon-button" data-action="news" aria-label="${unread ? "새 훈련 소식" : "훈련 소식"}">
       ${canvasIcon("bell")}${unread ? '<i class="unread"></i>' : ""}</button>
-    <button class="icon-button" data-action="profile" aria-label="선수 선택">${canvasIcon("person")}</button></span></header>
+    <button class="locker-link" data-action="profile">${canvasIcon("person")}선수·스킨 변경</button></span></header>
     <h2 class="today-title">오늘</h2>
     ${trackingPanel()}${draftShelf()}
-    <details id="training-ground"${page().showGround ? " open" : ""}>
-    <summary><span>기초 훈련장 · 스킨</span>${recordPortrait(a)}</summary>
-    ${scene()}${progressPanel()}
-    <div class="sport-heading"><h3>다음 기록의 스킨</h3><button class="icon-button" data-action="sport-help" aria-label="스킨 안내">${canvasIcon("info")}</button></div>
-    <div class="outfit-strip">${Object.keys(sports).map((s) => outfitCard(a.animal,s)).join("")}</div>
-    ${button("모험과 마일스톤","adventure","secondary wide")}</details>
     <button class="row routine-home" data-action="routines"><strong>내 루틴</strong>
       ${routine ? `<span>기본 · ${esc(routine.name)}</span>` : ""}<b aria-hidden="true">›</b></button>
-    ${book.entries.length ? button("기초 훈련장 기록판","growth","secondary wide")+
-      button("↻ 지난 기록 가져오기","pick","secondary wide")+"<h3>최근 기록</h3>"+rows(latest().slice(0,3)) : ""}`;
+    <button class="row ground-shortcut" data-action="adventure">
+      ${groundPortrait(player)}<span class="row-text"><strong>훈련장 보기</strong>
+      <small>${recent ? "최근 훈련" : "다음 기록"} · ${animals[player.animal]} · ${sports[player.sport]}</small>
+      <b>Lv. ${s.level} · ${s.xp} XP</b></span><span class="arrow" aria-hidden="true">›</span></button>
+    ${book.entries.length ? button("훈련 기록판 보기","growth","secondary wide")+button("지난 기록 가져오기","pick","secondary wide")
+      +"<h3>최근 기록</h3>"+rows(latest().slice(0,3)) : ""}`;
 }
 function recordButton() {
   const unfinished = book.drafts?.some(item=>item.view==="editor");
   return `<button class="start" data-action="new"><i aria-hidden="true">＋</i>${unfinished ? "작성 중인 기록 이어쓰기" : book.entries.length ? "오늘 훈련 기록하기" : "첫 훈련 기록하기"}<b aria-hidden="true">›</b></button>`;
 }
 function profileView() {
-  return backButton()+heading("선수 선택")+muted("함께 훈련할 선수를 선택하세요.")
-    + `<div class="outfit-strip">${Object.keys(animals).map((a) => outfitCard(a,athlete().sport,true)).join("")}</div>
-      <h3>동작 미리보기</h3>${scene(previewMotion)}<div class="motion-list">${motionChoices()}</div>`;
+  const a = athlete();
+  return backButton()+heading("선수 라커룸")
+    + `<h3>선수</h3><div class="outfit-strip" role="group" aria-label="선수">${Object.keys(animals).map(name=>outfitCard(name,a.sport,true)).join("")}</div>
+      <div class="sport-heading"><h3>다음 기록의 스킨</h3>${button("스킨 안내","sport-help","quiet")}</div>
+      <div class="outfit-strip" role="group" aria-label="스킨">${Object.keys(sports).map(sport=>outfitCard(a.animal,sport)).join("")}</div>
+      <div class="locker-preview-label"><h3 id="locker-preview-title" tabindex="-1">동작 미리보기</h3><span>${animals[a.animal]} · ${sports[a.sport]}</span></div>
+      ${scene(lockerMotion())}<div class="motion-list" role="group" aria-label="동작">${motionChoices()}</div>`;
 }
 function newsView() {
   const s = stats();

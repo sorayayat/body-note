@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {until, withPreview} from "./preview-browser.mjs";
+import {preparePreviewScreenshots, savePreviewScreenshot} from "./preview-screenshots.mjs";
 
 const exerciseName = '[data-field="name"][data-ex="0"]';
 const action = (name, attribute, value) =>
@@ -287,4 +288,130 @@ test("코치는 화면에서 선택한 동물의 최신 대화를 이어가고 �
     assert.equal(final.formInputs["chat-cat"], nextInput);
     assert.equal(final.formInputs["chat-dog"], dogDraft);
     assert.equal(await app.value("#coach-input"), nextInput);
+  }));
+
+async function waitForHeading(app, heading) {
+  await until("screen heading " + heading,
+    async () => await app.evaluate("document.querySelector('#screen h2')?.textContent.trim()") === heading);
+}
+
+async function pressVisibleButton(app, selector, label) {
+  const target = await app.evaluate(`(async () => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el?.checkVisibility() || el.disabled) return null;
+    el.scrollIntoView({block: "center", inline: "nearest", behavior: "instant"});
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const rect = el.getBoundingClientRect(), x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return {x, y, reachable: el.contains(hit), name: el.getAttribute("aria-label") ?? el.innerText};
+  })()`);
+  assert.ok(target?.reachable, selector + " must receive a pointer on the visible button");
+  assert.ok(target.name.includes(label), label + " must be in the button's accessible name: " + target.name);
+  const point = {x: target.x, y: target.y, button: "left", clickCount: 1};
+  await app.send("Input.dispatchMouseEvent", {type: "mousePressed", ...point});
+  await app.send("Input.dispatchMouseEvent", {type: "mouseReleased", ...point});
+  await afterWrites(app);
+}
+
+test("오늘의 훈련장 보기와 선수 라커룸이 확정한 스킨·현재 선택·돌아갈 화면을 구분한다",
+  () => withPreview(async ({app}) => {
+    await preparePreviewScreenshots(app);
+    await app.action("new");
+    await app.input(exerciseName, "케이블 로우");
+    await app.input('[data-field="kg"][data-ex="0"][data-set="0"]', "12.5");
+    await app.action("confirm");
+    await waitForHeading(app, "오늘");
+    await until("weekly tracking shows the confirmed set", async () => /1일\s*·\s*1회\s*·\s*1세트/u.test(await screenText(app)));
+    const recorded = (await app.stored()).entries[0];
+    assert.deepEqual(recorded.recordedAthlete, {animal: "cat", sport: "running"});
+    await until("the save message has closed", () => app.evaluate("document.querySelector('#notice').hidden"));
+    await savePreviewScreenshot(app, "today");
+
+    const ground = '#screen [data-action="adventure"]';
+    const locker = '#screen [data-action="profile"]';
+    const back = '#screen [data-action="back"]';
+    await pressVisibleButton(app, ground, "훈련장 보기");
+    await waitForHeading(app, "기초 훈련장");
+    await savePreviewScreenshot(app, "ground");
+    await pressVisibleButton(app, '#screen [data-action="growth"]', "훈련 기록판 보기");
+    await waitForHeading(app, "훈련 기록판");
+    await pressVisibleButton(app, back, "돌아가기");
+    await waitForHeading(app, "기초 훈련장");
+
+    await pressVisibleButton(app, locker, "선수·스킨 변경");
+    await waitForHeading(app, "선수 라커룸");
+    const rabbit = '#screen [data-action="animal"][data-value="rabbit"]';
+    const hockey = '#screen [data-action="sport"][data-value="fieldHockey"]';
+    await pressVisibleButton(app, rabbit, "토끼");
+    await waitForHeading(app, "선수 라커룸");
+    await pressVisibleButton(app, hockey, "필드하키");
+    await waitForHeading(app, "선수 라커룸");
+    assert.ok(await app.visible(rabbit + '[aria-pressed="true"]'));
+    assert.ok(await app.visible(hockey + '[aria-pressed="true"]'));
+    assert.ok(await app.visible('#screen .hero[data-preview][data-animal="rabbit"][data-sport="fieldHockey"]'));
+    await app.evaluate("document.querySelector('#screen').scrollTo({top:0,behavior:'instant'})");
+    await savePreviewScreenshot(app, "locker");
+    const changed = await app.stored();
+    assert.deepEqual(changed.athlete, {animal: "rabbit", sport: "fieldHockey"});
+    assert.deepEqual(changed.entries, [recorded]);
+
+    await app.evaluate("history.back()");
+    await waitForHeading(app, "기초 훈련장");
+    assert.ok(await app.visible('#screen .hero[data-animal="cat"][data-sport="running"]'));
+    await app.evaluate("history.forward()");
+    await waitForHeading(app, "선수 라커룸");
+    await app.reload();
+    await waitForHeading(app, "선수 라커룸");
+    assert.ok(await app.visible(hockey + '[aria-pressed="true"]'));
+    await pressVisibleButton(app, back, "돌아가기");
+    await waitForHeading(app, "기초 훈련장");
+    await pressVisibleButton(app, back, "돌아가기");
+    await waitForHeading(app, "오늘");
+    assert.ok(await app.visible(ground + ' .record-portrait[data-animal="cat"][data-skin="running"]'));
+    await pressVisibleButton(app, locker, "선수·스킨 변경");
+    await waitForHeading(app, "선수 라커룸");
+    await pressVisibleButton(app, back, "돌아가기");
+    await waitForHeading(app, "오늘");
+  }));
+
+test("기록 작성 중 오른쪽 동작 미리보기를 열고 돌아오면 미완성 숫자와 초안이 복원된다",
+  () => withPreview(async ({app}) => {
+    await app.action("new");
+    const weight = '[data-field="kg"][data-ex="0"][data-set="0"]';
+    const note = '[data-field="note"][data-ex="0"]';
+    await app.input(exerciseName, "미완성 로우");
+    await app.input(note, "다음에 자세 확인");
+    await app.input(weight, "17.");
+    await pressVisibleButton(app, '#motion-list [data-action="motion"][data-value="run"]', "달리기");
+    await waitForHeading(app, "선수 라커룸");
+    assert.ok(await app.visible('#screen .hero[data-preview][data-motion="run"]'));
+    assert.ok(await app.visible('#screen [data-action="motion"][data-value="run"][aria-pressed="true"]'));
+    await pressVisibleButton(app, '#motion-list [data-action="motion"][data-value="ready"]', "준비");
+    const animation = '#screen .hero[data-preview][data-motion="ready"]';
+    assert.ok(await app.visible(animation));
+    assert.ok(await app.visible('#screen [data-action="motion"][data-value="ready"][aria-pressed="true"]'));
+    const pending = await app.stored();
+    assert.equal(pending.entries.length, 0);
+    assert.equal(pending.drafts.length, 1);
+    const [before] = pending.drafts;
+    assert.equal(before.entry.exercises[0].sets[0].kg, "17.");
+    assert.equal(before.entry.exercises[0].note, "다음에 자세 확인");
+
+    await app.reload();
+    await waitForHeading(app, "선수 라커룸");
+    assert.ok(await app.visible(animation));
+    await pressVisibleButton(app, '#screen [data-action="back"]', "돌아가기");
+    await waitForHeading(app, "오늘의 기록");
+    assert.equal(await app.value(weight), "17.");
+    await app.reload();
+    await waitForHeading(app, "오늘의 기록");
+    assert.equal(await app.value(exerciseName), "미완성 로우");
+    assert.equal(await app.value(note), "다음에 자세 확인");
+    assert.equal(await app.value(weight), "17.");
+    const after = await app.stored();
+    assert.deepEqual(after.drafts.map(draft => draft.id), [before.id]);
+    assert.equal(after.entries.length, 0);
+
+    await app.tab("today");
+    assert.match(await screenText(app), /0일\s*·\s*0회\s*·\s*0세트/u);
   }));

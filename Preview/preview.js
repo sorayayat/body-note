@@ -144,15 +144,35 @@ function notify(text) {
   noticeTimer = setTimeout(() => { $("#notice").hidden = true; }, 4500);
 }
 function page() { return pages[pages.length - 1]; }
-function go(view, options = {}) {
+function trainingControlKey(el) {
+  return {rail:!!el.closest(".controls"),action:el.dataset.action,value:el.dataset.value,animal:el.dataset.animal};
+}
+function findTrainingControl(key) {
+  const region = key.rail ? $(".controls") : $("#screen");
+  return [...region.querySelectorAll("button[data-action]")].find(el=>el.dataset.action===key.action
+    && el.dataset.value===key.value && el.dataset.animal===key.animal);
+}
+function trainingControlPosition(el) {
+  return {control:trainingControlKey(el),screenY:$("#screen").scrollTop,windowY:window.scrollY};
+}
+function restoreTrainingPosition(position) {
+  $("#screen").scrollTop = position.screenY;
+  window.scrollTo(0,position.windowY);
+  (findTrainingControl(position.control) ?? $("#screen")).focus({preventScroll:true});
+}
+function go(view, options = {}, trigger) {
   if (!flushWorkspace()) return;
-  if (["library","routine-editor"].includes(view) && !persistEditor(page(),true)) return;
+  if (["library","routine-editor","profile"].includes(view) && !persistEditor(page(),true)) return;
+  if (trigger) page().returnPosition = trainingControlPosition(trigger);
+  else delete page().returnPosition;
   saveRoute(true);
   pages.push({ view, ...options }); saveRoute(); render(true);
 }
 function home(tab, replace = false) {
   if (!flushWorkspace()) return;
   refreshBook();
+  if (page().returnPosition) { delete page().returnPosition; saveRoute(true); }
+  window.scrollTo(0,0);
   if (pages.length === 1 && page().view === tab) return render(true);
   draft = null; pages = [{ view: tab }]; saveRoute(replace); render(true);
 }
@@ -231,7 +251,10 @@ function adventureView() {
   const s = stats();
   const points = [["첫 훈련 도장", "재활·훈련 첫 기록", s.days >= 1], ["콘 코스 개방", "서로 다른 3일 기록", s.days >= 3],
     ["매트 구역 개방", "누적 6일 기록과 한 줄 회고", s.matArea]];
-  return backButton() + heading("모험") + scene() + progressPanel() + growthBoardView() + "<h3>기초 훈련장 마일스톤</h3>"
+  return backButton() + `<div class="ground-title"><img src="${assetRoot}TrackBadge.imageset/art.png" alt="">${heading("기초 훈련장")}</div>`
+    + scene() + progressPanel()
+    + '<div class="ground-actions">'+button("선수·스킨 변경","profile","secondary")+button("훈련 기록판 보기","growth","secondary")+'</div>'
+    + "<h3>훈련장 마일스톤</h3>"
     + points.map(([name, desc, done]) => `<div class="row"><span class="badge">${done ? "✓" : "○"}</span>
       <div class="row-text"><strong>${name}</strong><small>${desc}</small></div></div>`).join("")
     + (s.days >= 6 ? button(book.reflection || "한 줄 회고 쓰기", "reflection", "secondary wide") : "")
@@ -249,11 +272,11 @@ function choice(label, name, value, options, extra = "") {
 }
 
 
-function growthBoardView(standalone = false) {
+function growthBoardView() {
   const cards = growthBoard(), goals = activeSkillGoals();
   const readingLink = (r, label) => button(`${label} · ${dayLabel(r.entry.day)} · ${r.value}회`,
     "detail", "reading-link", `data-id="${esc(r.entry.id)}"`);
-  let html = standalone ? backButton() + heading("기초 훈련장 기록판") : "<h3>기초 훈련장 기록판</h3>";
+  let html = backButton() + heading("훈련 기록판");
   if (!cards.length) html += muted("같은 운동의 마지막 세트 횟수를 비교해요. 여러 세트라면 세트 간 휴식 시간도 입력해 주세요.");
   for (const card of cards) {
     const r = card.current, c = r.condition;
@@ -470,7 +493,7 @@ function render(navigate = false, companion) {
     exercise: exerciseView, editor: editorView, library: libraryView, "catalog-info": catalogDetailView,
     routines: routineListView, "routine-editor": routineEditorView,
     note: noteView, "goal-new": goalView, "goal-detail": goalView,
-    growth: () => growthBoardView(true), "skill-new": skillGoalForm, "skill-detail": skillDetail,
+    growth: growthBoardView, "skill-new": skillGoalForm, "skill-detail": skillDetail,
     pick: () => backButton() + heading("지난 기록 가져오기") + rows(latest(), "copy") };
   $("#screen").innerHTML = views[page().view]();
   document.title = "운동일지 · " + ($("#screen h2")?.textContent ?? "오늘");
@@ -481,11 +504,24 @@ function render(navigate = false, companion) {
   const isHome = page().view === "today";
   const isCoach = page().view === "coach";
   $("#screen").classList.toggle("home-screen", isHome);
+  $("#screen").classList.toggle("ground-screen",page().view==="adventure" || page().view==="growth");
+  $("#screen").classList.toggle("locker-screen",page().view==="profile" || page().view==="sport-help");
   $("#record-bar").hidden = !(isHome || isCoach);
   $("#record-bar").innerHTML = isHome ? recordButton() : isCoach ? coachComposer(companion) : "";
   renderLocker();
   paintIcons();
-  if (navigate) { $("#screen").scrollTop = isCoach ? $("#screen").scrollHeight : 0; $("#screen").focus({ preventScroll: true }); }
+  if (navigate) {
+    const screen = $("#screen"), ctx = page();
+    if (ctx.returnPosition?.control?.action) { restoreTrainingPosition(ctx.returnPosition); return; }
+    screen.scrollTop = isCoach ? screen.scrollHeight : 0;
+    if (["adventure","profile","growth","sport-help"].includes(ctx.view)) {
+      window.scrollTo(0,0);
+      if (ctx.view==="profile" && ctx.motion) { focusLockerPreview(); return; }
+      const title = screen.querySelector("h2");
+      title.tabIndex = -1;
+      title.focus({preventScroll:true});
+    } else screen.focus({preventScroll:true});
+  }
 }
 
 function openCopy(entry, index) {
@@ -568,11 +604,16 @@ listenToWrites(document,"change", ({target: t}) => {
   }
 });
 listenToWrites(document,"click", (event, submission) => {
-  const el = event.target.closest("button");
+  let el = event.target.closest("button");
   if (!el) return;
   if (submission?.editor) {
     // Adding a set redraws this editor's buttons while its save click is queued.
     if (pendingBack || submission.editor !== page() || !draft || draft.id !== page().draftID) return;
+  } else if (submission?.lockerControl) {
+    const fromSource = submission.lockerControl.rail && page().view==="profile" && pages.at(-2)===submission.owner;
+    if (pendingBack || (submission.owner!==page() && !fromSource)) return;
+    if (!el.isConnected) el = findTrainingControl(submission.lockerControl);
+    if (!el) return;
   } else if (!el.isConnected) return;
   if (el.dataset.tab) {
     // A pending history traversal must finish before a tab can push its new route.
@@ -616,7 +657,7 @@ listenToWrites(document,"click", (event, submission) => {
     if (draft && window.confirm("작성 중인 초안을 삭제할까요?") && finishEditor(structuredClone(book),draft.id)) back();
     break;
   case "tracking-day": go("tracking-day",{date:value}); break;
-  case "adventure": go("adventure"); break;
+  case "adventure": go("adventure",{},el); break;
   case "coach-prompt": {
     const input = $("#coach-input"); input.value = value; rememberForm(input.id,value,input.dataset.formKey); input.focus(); break;
   }
@@ -654,14 +695,13 @@ listenToWrites(document,"click", (event, submission) => {
     if (save(next)) go("news");
     break;
   }
-  case "profile": go("profile"); break;
-  case "growth": go("growth"); break;
-  case "sport-help": go("sport-help"); break;
-  case "motion": playPreview(value); break;
-  case "sport": setKit(athlete().animal,value); break;
-  case "animal": if (setKit(value,athlete().sport)) back(); break;
-  case "locker-animal": setKit(value,athlete().sport); break;
-  case "locker-kit": setKit(el.dataset.animal,value); break;
+  case "profile": go("profile",{},el); break;
+  case "growth": go("growth",{},el); break;
+  case "sport-help": go("sport-help",{},el); break;
+  case "motion": playPreview(value,el); break;
+  case "sport": setKit(athlete().animal,value,el); break;
+  case "animal": case "locker-animal": setKit(value,athlete().sport,el); break;
+  case "locker-kit": setKit(el.dataset.animal,value,el); break;
   case "pick": go("pick"); break;
   case "copy": openCopy(entry, ex); break;
   case "edit":
@@ -742,18 +782,15 @@ listenToWrites(document,"click", (event, submission) => {
   }
   if (page().draftID) persistEditor();
 }, event => {
-  const action = event.target.closest("button")?.dataset.action;
+  const el = event.target.closest("button"), action = el?.dataset.action;
   if (action === "confirm" || action === "routine-save") return {editor:page()};
+  if (["animal","sport","motion","locker-animal","locker-kit","sport-help"].includes(action))
+    return {owner:page(),lockerControl:trainingControlKey(el)};
   return action === "coach-send" ? captureCoachSend() : null;
 });
 function updateClock() { $("#clock").textContent = new Date().toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit", hour12:false }); }
 updateClock();
 setInterval(updateClock, 60000);
-document.addEventListener("toggle",({target})=>{
-  if (target.id === "training-ground" && target.isConnected && page().view === "today") {
-    page().showGround = target.open; saveRoute(true);
-  }
-},true);
 window.addEventListener("popstate",event=>{
   for (const complete of [...queuedEvents]) complete();
   const selectedTab = pendingBack?.tab;

@@ -20,6 +20,16 @@ jobs:
       - name: Exercise the main journal journey in Edge
         if: ${{ !cancelled() }}
         run: node Scripts/check-preview.mjs
-      - name: Check restoration and concurrent edits in Edge
+      - name: Check navigation, restoration and concurrent edits in Edge
         if: ${{ !cancelled() }}
+        env:
+          WORKOUT_PREVIEW_SCREENSHOTS: ${{ runner.temp }}/workout-preview-screens
         run: node --test Scripts/preview-regressions.test.mjs
+      - name: Publish the tested Windows screens
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: WorkoutLog-Windows-Screens
+          path: ${{ runner.temp }}/workout-preview-screens/*.png
+          if-no-files-found: error
+          retention-days: 14

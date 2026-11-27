@@ -214,6 +214,63 @@ final class WorkoutJournalUITests: XCTestCase {
     }
 
     @MainActor
+    func testGroundAndLockerReturnToAnUnconfirmedWorkoutDraft() {
+        let app = launchSession()
+        let record = app.buttons["workout.record"]
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+        let editor = app.navigationBars["오늘의 기록"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let name = app.textFields["exercise.name"]
+        reveal(name, in: app, swipingUp: true)
+        name.tap()
+        name.typeText("Locker Row")
+        assertValue("Locker Row", in: name)
+        let weight = app.textFields["1세트 무게 (kg)"]
+        reveal(weight, in: app, swipingUp: true)
+        weight.tap()
+        weight.typeText("18.")
+        assertValue("18.", in: weight)
+        editor.buttons["닫기"].tap()
+
+        let summary = weekSummary(days: 0, sets: 0, in: app)
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        let ground = app.buttons["training.ground"]
+        reveal(ground, in: app, swipingUp: true)
+        XCTAssertEqual(ground.label, "훈련장 보기")
+        ground.tap()
+        let groundBar = app.navigationBars["기초 훈련장"]
+        XCTAssertTrue(groundBar.waitForExistence(timeout: 5))
+        let locker = app.buttons["athlete.locker"]
+        reveal(locker, in: app, swipingUp: true)
+        XCTAssertEqual(locker.label, "선수·스킨 변경")
+        locker.tap()
+        let lockerBar = app.navigationBars["선수 라커룸"]
+        XCTAssertTrue(lockerBar.waitForExistence(timeout: 5))
+        let rabbit = app.buttons["토끼"]
+        reveal(rabbit, in: app, swipingUp: true)
+        rabbit.tap()
+        XCTAssertTrue(rabbit.isSelected)
+        let hockey = app.buttons["필드하키"]
+        reveal(hockey, in: app, swipingUp: true)
+        hockey.tap()
+        XCTAssertTrue(hockey.isSelected)
+        XCTAssertTrue(lockerBar.exists)
+        lockerBar.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(groundBar.waitForExistence(timeout: 5))
+        groundBar.buttons.element(boundBy: 0).tap()
+
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        record.tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        reveal(name, in: app, swipingUp: true)
+        assertValue("Locker Row", in: name)
+        reveal(weight, in: app, swipingUp: true)
+        assertValue("18.", in: weight)
+    }
+
+    @MainActor
     private func assertValue(_ expected: String, in field: XCUIElement,
                              file: StaticString = #filePath, line: UInt = #line) {
         let completeValue = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected),

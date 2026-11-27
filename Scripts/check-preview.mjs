@@ -96,7 +96,7 @@ await withPreview(async ({app, newTab}) => {
   await tab("journal");
   await until("successful retry after storage recovery",async()=>(await stored()).drafts.some(d=>d.entry.note==="저장공간 복구 뒤 보관할 말"));
   await tab("today");
-  await click("#training-ground > summary"); await action("adventure"); await action("goal-new");
+  await action("adventure"); await action("goal-new");
   await input("#goal-name","코어"); await input("#goal-target","5");
   await action("back"); await action("goal-new");
   await expectValue("#goal-name","코어");
